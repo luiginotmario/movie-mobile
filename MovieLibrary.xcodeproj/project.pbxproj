@@ -1,0 +1,94 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		MovieLibraryApp.swift in Sources = {isa = PBXBuildFile; };
+		ContentView.swift in Sources = {isa = PBXBuildFile; };
+		Movie.swift in Sources = {isa = PBXBuildFile; };
+		MovieStore.swift in Sources = {isa = PBXBuildFile; };
+		NotificationManager.swift in Sources = {isa = PBXBuildFile; };
+		MovieLibraryView.swift in Sources = {isa = PBXBuildFile; };
+		MovieDetailView.swift in Sources = {isa = PBXBuildFile; };
+		AddMovieView.swift in Sources = {isa = PBXBuildFile; };
+		URLAnalyzerView.swift in Sources = {isa = PBXBuildFile; };
+		VoiceSearchView.swift in Sources = {isa = PBXBuildFile; };
+		APIService.swift in Sources = {isa = PBXBuildFile; };
+		StreamingServiceManager.swift in Sources = {isa = PBXBuildFile; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		MovieLibrary.app = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MovieLibrary.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		Info.plist = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		MovieLibrary = {
+			isa = PBXGroup;
+			children = (
+				Info.plist,
+				MovieLibraryApp.swift,
+				Models,
+				Views,
+				ViewModels,
+				Managers,
+				Services,
+			);
+			path = MovieLibrary;
+			sourceTree = "<group>";
+		};
+		Models = {
+			isa = PBXGroup;
+			children = (
+				Movie.swift,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		Views = {
+			isa = PBXGroup;
+			children = (
+				ContentView.swift,
+				MovieLibraryView.swift,
+				MovieDetailView.swift,
+				AddMovieView.swift,
+				URLAnalyzerView.swift,
+				VoiceSearchView.swift,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		ViewModels = {
+			isa = PBXGroup;
+			children = (
+				MovieStore.swift,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		Managers = {
+			isa = PBXGroup;
+			children = (
+				NotificationManager.swift,
+			);
+			path = Managers;
+			sourceTree = "<group>";
+		};
+		Services = {
+			isa = PBXGroup;
+			children = (
+				APIService.swift,
+				StreamingServiceManager.swift,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+	};
+	rootObject = {isa = PBXProject; };
+}
