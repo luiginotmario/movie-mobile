@@ -133,30 +133,4 @@ class MovieStore: ObservableObject {
         }
     }
     
-    // MARK: - API Integration Placeholders
-    
-    func fetchFromStreamingServices() async {
-        isLoading = true
-        defer { isLoading = false }
-        
-        // TODO: Implement Netflix, Prime Video API integration
-        // This will automatically fetch watched content
-    }
-    
-    func analyzeURLForMovie(url: String) async throws -> Movie? {
-        isLoading = true
-        defer { isLoading = false }
-        
-        // TODO: Implement Instagram/TikTok URL analysis
-        // Use API endpoints to extract video and identify movie
-        return nil
-    }
-    
-    func searchMovieByVoice(description: String) async throws -> [Movie] {
-        isLoading = true
-        defer { isLoading = false }
-        
-        // TODO: Implement NL search with 11Labs voice integration
-        return []
-    }
 }

@@ -12,12 +12,14 @@ let package = Package(
             targets: ["MovieLibrary"]),
     ],
     dependencies: [
-        // Add any external dependencies here
-        // Example: .package(url: "https://github.com/Alamofire/Alamofire.git", from: "5.8.0")
+        // Supabase Swift SDK for cloud sync
+        .package(url: "https://github.com/supabase/supabase-swift.git", from: "2.0.0")
     ],
     targets: [
         .target(
             name: "MovieLibrary",
-            dependencies: []),
+            dependencies: [
+                .product(name: "Supabase", package: "supabase-swift")
+            ]),
     ]
 )

@@ -2,10 +2,8 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var movieStore: MovieStore
-    @State private var selectedTab = 0
     @State private var showAddMovie = false
-    @State private var showURLAnalyzer = false
-    @State private var showVoiceSearch = false
+    @State private var showSearchMovie = false
     
     var body: some View {
         NavigationView {
@@ -51,25 +49,11 @@ struct ContentView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Button(action: { showAddMovie = true }) {
-                            Label("Add Movie Manually", systemImage: "plus.circle")
+                            Label("Add Manually", systemImage: "square.and.pencil")
                         }
                         
-                        Button(action: { showURLAnalyzer = true }) {
-                            Label("Analyze URL", systemImage: "link")
-                        }
-                        
-                        Button(action: { showVoiceSearch = true }) {
-                            Label("Voice Search", systemImage: "mic.fill")
-                        }
-                        
-                        Divider()
-                        
-                        Button(action: {
-                            Task {
-                                await movieStore.fetchFromStreamingServices()
-                            }
-                        }) {
-                            Label("Sync Streaming Services", systemImage: "arrow.triangle.2.circlepath")
+                        Button(action: { showSearchMovie = true }) {
+                            Label("Search TMDB", systemImage: "magnifyingglass")
                         }
                     } label: {
                         Image(systemName: "plus")
@@ -81,11 +65,8 @@ struct ContentView: View {
             .sheet(isPresented: $showAddMovie) {
                 AddMovieView()
             }
-            .sheet(isPresented: $showURLAnalyzer) {
-                URLAnalyzerView()
-            }
-            .sheet(isPresented: $showVoiceSearch) {
-                VoiceSearchView()
+            .sheet(isPresented: $showSearchMovie) {
+                TMDBSearchView()
             }
         }
         .preferredColorScheme(.dark)
