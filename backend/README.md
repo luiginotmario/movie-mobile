@@ -9,13 +9,47 @@ FastAPI backend for movie identification from Instagram/TikTok video clips using
 - 🎬 **TMDB Verification**: Confirm and enrich movie data
 - 📱 **Webhook Support**: Instagram & TikTok integration
 - ⚡ **Fast Response**: 5-10 second total processing time
+- 💾 **Smart Caching**: Redis-based caching to avoid redundant API calls
+- 🔗 **Account Linking**: Deep link system to connect social media users to app accounts
+- 📊 **User Journey Tracking**: Smart responses based on user state (new/returning/linked)
+- 🎞️ **Clip Storage**: Automatic video clip saving to Supabase Storage for linked users
 
 ## Architecture
 
+### Movie Identification Pipeline
 ```
 Video URL → Download → Extract Frames → VLM Identification → TMDB Verification → Response
             1-2s       0.5s             2-3s               1s                  ~6s total
 ```
+
+### User Journey Flow
+```
+User sends video to bot
+        ↓
+Check user state in database
+        ↓
+    ┌───┴───┐
+    ↓       ↓       ↓
+NEW USER  RETURNING  LINKED
+(1st msg)  (has      (account
+           history)   linked)
+    ↓       ↓          ↓
+App Store  Deep Link  Auto-save
+Download   to Link    + Confirm
+```
+
+**NEW USER** (First interaction):
+- Show movie info + App Store download link
+- Track user for future interactions
+
+**RETURNING USER** (Has sent messages before):
+- Show movie info + deep link to link account
+- Deep link opens iOS app for seamless linking
+
+**LINKED USER** (Account connected):
+- Show movie info + "Saved to library!"
+- Auto-save clip to Supabase Storage
+- Add movie to user's library
 
 ## Setup
 
@@ -41,6 +75,9 @@ Required API keys:
 - **Instagram**: Set up at [developers.facebook.com](https://developers.facebook.com)
 - **TikTok**: Apply at [developers.tiktok.com](https://developers.tiktok.com)
 
+Optional (but recommended):
+- **Redis**: For caching (free tier at [upstash.com](https://upstash.com) or local)
+
 ### 3. Run Development Server
 
 ```bash
@@ -50,6 +87,41 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Server will start at: `http://localhost:8000`
+
+### 4. Set Up Redis (Optional but Recommended)
+
+**Option 1: Local Redis** (Development)
+```bash
+# macOS
+brew install redis
+brew services start redis
+
+# Ubuntu/Debian
+sudo apt install redis-server
+sudo systemctl start redis
+
+# Windows
+# Download from https://redis.io/download
+```
+
+**Option 2: Free Cloud Redis** (Production)
+
+**Upstash** (Recommended - Free tier):
+1. Sign up at [upstash.com](https://upstash.com)
+2. Create database
+3. Copy connection details to `.env`:
+```bash
+REDIS_HOST=your-database.upstash.io
+REDIS_PORT=6379
+REDIS_PASSWORD=your-password
+```
+
+**Railway** (Free $5 credit):
+1. Go to [railway.app](https://railway.app)
+2. New Project → Add Redis
+3. Copy connection details
+
+**Without Redis**: The app will still work, but will call TMDB API every time (slower + more API usage)
 
 ## API Endpoints
 
@@ -76,6 +148,23 @@ POST /api/identify-movie
 {
   "video_url": "https://example.com/video.mp4"
 }
+```
+
+### Cache Management
+```bash
+GET  /cache/stats   # View cache statistics
+POST /cache/clear   # Clear all cache (admin)
+```
+
+### Account Linking
+```bash
+POST /api/link-account
+{
+  "user_id": "uuid",
+  "link_token": "token-from-deep-link"
+}
+
+GET /api/user/clips?user_id=uuid&movie_id=12345
 ```
 
 ## Testing
@@ -199,9 +288,29 @@ docker run -p 8000:8000 --env-file .env movielibrary-backend
 
 ## Performance Optimization
 
+### Caching Strategy
+
+The backend uses Redis to cache TMDB responses:
+
+- **Movie Details**: Cached for 30 days (movies rarely change)
+- **Search Results**: Cached for 7 days
+- **VLM Identifications**: Cached for 90 days
+
+**Benefits**:
+- ⚡ **Instant responses** for cached movies (< 1ms vs 200-500ms)
+- 💰 **Reduced API costs** (no redundant TMDB calls)
+- 🚀 **Better scalability** (handles more users)
+
+**Example**: If 100 users search for "Inception":
+- Without cache: 100 TMDB API calls
+- With cache: 1 TMDB API call + 99 cache hits
+
+**Memory usage**: ~50KB per movie × 1000 movies = 50MB
+
+### Other Optimizations
+
 - Use **Gemini Flash** for best speed/cost ratio
 - Extract **2-3 frames** (more doesn't help much)
-- Cache common movie results
 - Use background tasks for processing
 - Clean up temp files regularly
 

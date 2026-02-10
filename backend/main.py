@@ -14,6 +14,9 @@ from services.openrouter_service import OpenRouterService
 from services.tmdb_service import TMDBService
 from services.instagram_service import InstagramService
 from services.tiktok_service import TikTokService
+from services.user_state_service import UserStateService
+from services.clip_storage_service import ClipStorageService
+from constants.user_states import UserState, Platform
 from config import settings
 
 # Initialize services
@@ -22,6 +25,8 @@ openrouter = OpenRouterService()
 tmdb = TMDBService()
 instagram = InstagramService()
 tiktok = TikTokService()
+user_state_service = UserStateService()  # TODO: Pass database client when available
+clip_storage_service = ClipStorageService()  # TODO: Pass storage client when available
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -63,8 +68,21 @@ async def health_check():
         "services": {
             "openrouter": await openrouter.health_check(),
             "tmdb": await tmdb.health_check(),
-        }
+            "cache": tmdb.cache.health_check(),
+        },
+        "cache_stats": tmdb.cache.get_stats()
     }
+
+@app.get("/cache/stats")
+async def cache_stats():
+    """Get cache statistics"""
+    return tmdb.cache.get_stats()
+
+@app.post("/cache/clear")
+async def clear_cache():
+    """Clear all cache (admin endpoint)"""
+    tmdb.cache.clear_all()
+    return {"status": "cache cleared"}
 
 # Instagram Webhook
 @app.get("/webhook/instagram")
@@ -113,14 +131,61 @@ async def identify_movie_api(video_url: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Account Linking API
+@app.post("/api/link-account")
+async def link_social_account(user_id: str, link_token: str):
+    """
+    Link Instagram/TikTok account to app user account
+    Called by iOS app when user taps deep link
+    
+    Args:
+        user_id: App user ID (from Supabase auth)
+        link_token: One-time linking token from deep link
+        
+    Returns:
+        Success status and platform info
+    """
+    try:
+        result = await user_state_service.link_account(
+            app_user_id=user_id,
+            link_token=link_token
+        )
+        
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result.get("error", "Linking failed"))
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/user/clips")
+async def get_user_clips(user_id: str, movie_id: Optional[str] = None):
+    """
+    Get all video clips for a user
+    
+    Args:
+        user_id: App user ID
+        movie_id: Optional movie ID to filter by
+        
+    Returns:
+        List of user's video clips
+    """
+    try:
+        clips = await clip_storage_service.get_user_clips(user_id, movie_id)
+        return {"clips": clips}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Background Tasks
 async def process_instagram_message(data: dict):
-    """Process Instagram message in background"""
+    """Process Instagram message with smart user state handling"""
     try:
-        # Extract video URL from Instagram payload
+        # Extract message data
         entry = data.get("entry", [])[0]
         messaging = entry.get("messaging", [])[0]
-        
         sender_id = messaging.get("sender", {}).get("id")
         
         # Check if message contains video
@@ -129,35 +194,93 @@ async def process_instagram_message(data: dict):
                 if attachment.get("type") == "video":
                     video_url = attachment.get("payload", {}).get("url")
                     
-                    # Identify movie
+                    # 1. Identify movie from video
                     result = await identify_movie_from_video(video_url)
                     
-                    # Send response
-                    if result["success"]:
-                        movie = result["movie"]
-                        message = f"🎬 Found it!\n\n{movie['title']} ({movie.get('year', 'N/A')})\n⭐ {movie.get('rating', 'N/A')}/10\n\n{movie.get('overview', '')[:200]}..."
-                    else:
-                        message = "😕 Couldn't identify this movie. Try a clearer scene or different clip!"
+                    if not result["success"]:
+                        await instagram.send_message(
+                            sender_id,
+                            "😕 Couldn't identify this movie. Try a clearer scene!"
+                        )
+                        return
                     
-                    await instagram.send_message(sender_id, message)
+                    movie = result["movie"]
+                    
+                    # 2. Get user state (new, returning, or linked)
+                    state, user_data = await user_state_service.get_user_state(
+                        platform=Platform.INSTAGRAM,
+                        platform_user_id=sender_id
+                    )
+                    
+                    # 3. Generate appropriate response based on user journey
+                    response = await user_state_service.generate_response(
+                        state=state,
+                        movie=movie,
+                        platform=Platform.INSTAGRAM,
+                        platform_user_id=sender_id,
+                        user_data=user_data
+                    )
+                    
+                    # 4. If linked user, save clip automatically
+                    if response.should_save_clip and user_data:
+                        await clip_storage_service.save_clip_to_library(
+                            app_user_id=user_data["app_user_id"],
+                            movie=movie,
+                            video_url=video_url,
+                            platform=Platform.INSTAGRAM
+                        )
+                    
+                    # 5. Send response message
+                    await instagram.send_message(sender_id, response.response_message)
                     
     except Exception as e:
         print(f"Error processing Instagram message: {e}")
 
 async def process_tiktok_message(data: dict):
-    """Process TikTok message in background"""
+    """Process TikTok message with smart user state handling"""
     try:
         # TikTok webhook payload structure (adjust based on actual API)
         video_url = data.get("video_url")
         user_id = data.get("user_id")
         
-        if video_url and user_id:
-            result = await identify_movie_from_video(video_url)
-            
-            if result["success"]:
-                movie = result["movie"]
-                message = f"🎬 {movie['title']} ({movie.get('year', 'N/A')})"
-                await tiktok.send_message(user_id, message)
+        if not video_url or not user_id:
+            return
+        
+        # 1. Identify movie
+        result = await identify_movie_from_video(video_url)
+        
+        if not result["success"]:
+            await tiktok.send_message(user_id, "😕 Couldn't identify this movie.")
+            return
+        
+        movie = result["movie"]
+        
+        # 2. Get user state
+        state, user_data = await user_state_service.get_user_state(
+            platform=Platform.TIKTOK,
+            platform_user_id=user_id
+        )
+        
+        # 3. Generate response
+        response = await user_state_service.generate_response(
+            state=state,
+            movie=movie,
+            platform=Platform.TIKTOK,
+            platform_user_id=user_id,
+            user_data=user_data
+        )
+        
+        # 4. Save clip if linked
+        if response.should_save_clip and user_data:
+            await clip_storage_service.save_clip_to_library(
+                app_user_id=user_data["app_user_id"],
+                movie=movie,
+                video_url=video_url,
+                platform=Platform.TIKTOK
+            )
+        
+        # 5. Send response
+        await tiktok.send_message(user_id, response.response_message)
                 
     except Exception as e:
         print(f"Error processing TikTok message: {e}")

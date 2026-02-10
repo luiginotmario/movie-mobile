@@ -7,6 +7,7 @@ import httpx
 import re
 from typing import Optional, Dict
 from config import settings
+from services.cache_service import CacheService
 
 class TMDBService:
     def __init__(self):
@@ -18,6 +19,9 @@ class TMDBService:
             base_url=self.base_url,
             timeout=settings.REQUEST_TIMEOUT
         )
+        
+        # Initialize cache
+        self.cache = CacheService()
     
     async def health_check(self) -> bool:
         """Check if TMDB API is accessible"""
@@ -55,7 +59,7 @@ class TMDBService:
     
     async def search_movie(self, query: str, year: Optional[str] = None) -> Optional[Dict]:
         """
-        Search for movie in TMDB
+        Search for movie in TMDB with caching
         
         Args:
             query: Movie title
@@ -64,6 +68,14 @@ class TMDBService:
         Returns:
             Movie data dict or None
         """
+        # Check cache first
+        cached_result = self.cache.get_search(query, year)
+        if cached_result:
+            return cached_result
+        
+        # Cache miss - call API
+        print(f"🌐 TMDB API call: searching '{query}' ({year or 'any year'})")
+        
         try:
             params = {
                 "api_key": self.api_key,
@@ -90,7 +102,13 @@ class TMDBService:
             movie = results[0]
             
             # Fetch full details
-            return await self.get_movie_details(movie["id"])
+            movie_details = await self.get_movie_details(movie["id"])
+            
+            # Cache the result
+            if movie_details:
+                self.cache.set_search(query, year, movie_details)
+            
+            return movie_details
             
         except Exception as e:
             print(f"Error searching TMDB: {e}")
@@ -98,7 +116,7 @@ class TMDBService:
     
     async def get_movie_details(self, movie_id: int) -> Optional[Dict]:
         """
-        Get detailed information about a movie
+        Get detailed information about a movie with caching
         
         Args:
             movie_id: TMDB movie ID
@@ -106,6 +124,14 @@ class TMDBService:
         Returns:
             Detailed movie data
         """
+        # Check cache first
+        cached_movie = self.cache.get_movie(str(movie_id))
+        if cached_movie:
+            return cached_movie
+        
+        # Cache miss - call API
+        print(f"🌐 TMDB API call: movie details for ID {movie_id}")
+        
         try:
             response = await self.client.get(
                 f"/movie/{movie_id}",
@@ -121,7 +147,7 @@ class TMDBService:
             data = response.json()
             
             # Format response
-            return {
+            movie_data = {
                 "id": data["id"],
                 "title": data["title"],
                 "year": data["release_date"][:4] if data.get("release_date") else None,
@@ -135,6 +161,11 @@ class TMDBService:
                 "cast": self._extract_cast(data.get("credits", {})),
                 "trailer_url": self._extract_trailer(data.get("videos", {}))
             }
+            
+            # Cache the result
+            self.cache.set_movie(str(movie_id), movie_data)
+            
+            return movie_data
             
         except Exception as e:
             print(f"Error getting movie details: {e}")
