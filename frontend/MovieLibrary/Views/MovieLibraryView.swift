@@ -5,36 +5,26 @@ struct MovieLibraryView: View {
     @State private var selectedMovie: Movie?
     @State private var showMovieDetail = false
     
+    // Grid Columns
     private let columns = [
-        GridItem(.flexible(), spacing: 16),
-        GridItem(.flexible(), spacing: 16),
-        GridItem(.flexible(), spacing: 16)
+        GridItem(.adaptive(minimum: 150), spacing: 16)
     ]
     
     var body: some View {
         ScrollView {
-            if movieStore.filteredMovies.isEmpty {
-                EmptyLibraryView(mediaType: .movie)
-                    .padding(.top, 100)
-            } else {
-                LazyVGrid(columns: columns, spacing: 20) {
-                    ForEach(movieStore.filteredMovies) { movie in
-                        MoviePosterCard(movie: movie)
-                            .onTapGesture {
-                                selectedMovie = movie
-                                showMovieDetail = true
-                            }
-                    }
+            LazyVGrid(columns: columns, spacing: 20) {
+                ForEach(movieStore.filteredMovies) { movie in
+                    MoviePosterCard(movie: movie)
+                        .onTapGesture {
+                            selectedMovie = movie
+                            showMovieDetail = true
+                        }
                 }
-                .padding(.horizontal)
-                .padding(.top, 8)
-                .padding(.bottom, 20)
             }
+            .padding()
         }
-        .sheet(isPresented: $showMovieDetail) {
-            if let movie = selectedMovie {
-                MovieDetailView(movie: movie)
-            }
+        .sheet(item: $selectedMovie) { movie in
+            MovieDetailView(movie: movie)
         }
     }
 }
@@ -164,27 +154,19 @@ struct EmptyLibraryView: View {
 struct TVSeriesLibraryView: View {
     @EnvironmentObject var movieStore: MovieStore
     
+    // Grid Columns
     private let columns = [
-        GridItem(.flexible(), spacing: 16),
-        GridItem(.flexible(), spacing: 16),
-        GridItem(.flexible(), spacing: 16)
+        GridItem(.adaptive(minimum: 150), spacing: 16)
     ]
     
     var body: some View {
         ScrollView {
-            if movieStore.filteredTVSeries.isEmpty {
-                EmptyLibraryView(mediaType: .tvSeries)
-                    .padding(.top, 100)
-            } else {
-                LazyVGrid(columns: columns, spacing: 20) {
-                    ForEach(movieStore.filteredTVSeries) { series in
-                        TVSeriesPosterCard(series: series)
-                    }
+            LazyVGrid(columns: columns, spacing: 20) {
+                ForEach(movieStore.filteredTVSeries) { series in
+                    TVSeriesPosterCard(series: series)
                 }
-                .padding(.horizontal)
-                .padding(.top, 8)
-                .padding(.bottom, 20)
             }
+            .padding()
         }
     }
 }
