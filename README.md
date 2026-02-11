@@ -1,11 +1,13 @@
-# MovieLibrary - Your Personal Movie Collection
+# MovieFriend - Your Personal Movie Collection
 
-A beautiful iOS app with intelligent backend for managing your movie and TV series library. Includes movie identification from Instagram/TikTok video clips using AI vision models.
+A beautiful cross-platform mobile app (iOS + Android) with intelligent backend for managing your movie and TV series library. Includes movie identification from Instagram/TikTok video clips using AI vision models.
 
 ## 🎯 Components
 
-1. **iOS App (Frontend)**: SwiftUI app with offline-first architecture, TMDB integration, and Supabase sync
+1. **Mobile App (Frontend)**: React Native/Expo app with offline-first architecture, TMDB integration, and Supabase sync
 2. **Python Backend**: FastAPI server that identifies movies from video clips using VLM (OpenRouter) for Instagram/TikTok webhooks
+
+See [MIGRATION.md](./MIGRATION.md) for full details.
 
 ## Features
 
@@ -43,26 +45,31 @@ A beautiful iOS app with intelligent backend for managing your movie and TV seri
 
 ## Requirements
 
-- iOS 17.0+
-- Xcode 15.0+
-- Swift 5.9+
+- **Node.js** 18+ (for React Native)
+- **Expo CLI** (installed via npm)
+- **iOS Simulator** (via Xcode) or **Android Emulator** (via Android Studio)
+- **EAS CLI** (for deployment, optional)
+
+No Xcode project management needed! Builds happen in the cloud.
 
 ## Quick Start
 
 This project has two components:
-- **Frontend**: iOS app (SwiftUI) - see `frontend/`
+- **Mobile App**: React Native/Expo app - see `app/`
 - **Backend**: FastAPI server for Instagram/TikTok integration - see `backend/`
 
-### Frontend (iOS App)
+### Mobile App (React Native/Expo)
 
 ```bash
-cd frontend
-open MovieLibrary.xcodeproj
-# Configure API keys in Config.swift
-# Build and run (Cmd+R)
+cd app
+npm install
+chmod +x setup.sh && ./setup.sh  # Copy assets and create .env
+# Add your API keys to .env
+npm start
+# Then press 'i' for iOS or 'a' for Android
 ```
 
-See [frontend/SETUP_GUIDE.md](frontend/SETUP_GUIDE.md) for detailed setup.
+See [app/README.md](app/README.md) for detailed setup.
 
 ### Backend (Python FastAPI)
 
@@ -88,23 +95,24 @@ git clone <repository-url>
 cd movie-mobile
 ```
 
-### 2. Configure API Keys
+### 2. Set Up Mobile App
 
-Copy the example config file:
 ```bash
-cp MovieLibrary/Config.example.swift MovieLibrary/Config.swift
+cd app
+npm install
+chmod +x setup.sh && ./setup.sh
 ```
 
-Edit `Config.swift` and add your API keys:
-```swift
-struct Config {
-    static let tmdbAPIKey = "your_tmdb_api_key_here"
-    static let supabaseURL = "https://your-project.supabase.co"
-    static let supabaseAnonKey = "your_supabase_anon_key_here"
-}
+### 3. Configure API Keys
+
+Edit `app/.env` and add your API keys:
+```bash
+EXPO_PUBLIC_TMDB_API_KEY=your_tmdb_api_key_here
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 ```
 
-### 3. Get API Keys
+### 4. Get API Keys
 
 **TMDB API** (Required):
 1. Sign up at [themoviedb.org](https://www.themoviedb.org/signup)
@@ -119,53 +127,71 @@ struct Config {
 4. Copy Project URL and anon/public key
 5. Follow [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for database schema
 
-### 4. Install Dependencies
+**Google OAuth** (For sign-in):
+- Already configured in `app/src/config/index.ts`
+- Client IDs provided
 
-Add Supabase SDK via Swift Package Manager:
-1. Open Xcode
-2. File > Add Package Dependencies
-3. Enter: `https://github.com/supabase/supabase-swift`
-4. Select version 2.0.0 or later
-
-### 5. Build and Run
+### 5. Run the App
 
 ```bash
-open MovieLibrary.xcodeproj
+cd app
+npm start
 ```
 
-- Select your target device or simulator (iOS 17.0+)
-- Press Cmd+R to build and run
+Then:
+- Press `i` to open iOS simulator
+- Press `a` to open Android emulator
+- Scan QR code for physical device
+
+### 6. Deploy to App Store (Optional)
+
+```bash
+# Install EAS CLI
+npm install -g eas-cli
+
+# Login
+eas login
+
+# Build
+eas build --platform ios
+
+# Submit
+eas submit --platform ios
+```
+
+No Xcode required! All builds happen in the cloud.
 
 ## Project Structure
 
 ```
 movie-mobile/
 ├── README.md                       # This file
+├── MIGRATION.md                   # Swift → React Native migration guide
 ├── SUPABASE_SETUP.md              # Database schema and sync strategy
 │
-├── frontend/                      # iOS App (SwiftUI)
-│   ├── MovieLibrary/
-│   │   ├── Info.plist
-│   │   ├── MovieLibraryApp.swift
-│   │   ├── Config.swift           # API keys (not in git)
-│   │   ├── Config.example.swift
-│   │   ├── Models/
-│   │   │   └── Movie.swift
-│   │   ├── Views/
-│   │   │   ├── ContentView.swift
-│   │   │   ├── MovieLibraryView.swift
-│   │   │   ├── MovieDetailView.swift
-│   │   │   ├── AddMovieView.swift
-│   │   │   └── TMDBSearchView.swift
-│   │   ├── ViewModels/
-│   │   │   └── MovieStore.swift
-│   │   ├── Managers/
-│   │   │   └── NotificationManager.swift
-│   │   └── Services/
-│   │       └── APIService.swift
-│   ├── MovieLibrary.xcodeproj
-│   ├── Package.swift
-│   └── SETUP_GUIDE.md
+├── app/                           # Mobile App (React Native/Expo)
+│   ├── App.tsx                    # Entry point
+│   ├── app.json                   # Expo configuration
+│   ├── eas.json                   # Build/deployment config
+│   ├── package.json               # Dependencies
+│   ├── setup.sh                   # Quick setup script
+│   ├── src/
+│   │   ├── screens/
+│   │   │   └── AuthScreen.tsx     # Auth page (matches Figma)
+│   │   ├── contexts/
+│   │   │   └── AuthContext.tsx    # Auth state management
+│   │   ├── services/
+│   │   │   └── APIService.ts      # TMDB API integration
+│   │   ├── types/
+│   │   │   └── models.ts          # All TypeScript types
+│   │   └── config/
+│   │       └── index.ts           # API keys config
+│   └── assets/
+│       ├── Container.png          # Background image
+│       └── Logo.png               # App logo
+│
+├── frontend/                      # OLD Swift/SwiftUI code (reference only)
+│   └── MovieLibrary/              # Kept for reference during migration
 │
 └── backend/                       # Python FastAPI Backend
     ├── main.py                    # FastAPI app entry point
@@ -178,7 +204,12 @@ movie-mobile/
         ├── openrouter_service.py  # VLM integration
         ├── tmdb_service.py        # TMDB API
         ├── instagram_service.py   # Instagram webhooks
-        └── tiktok_service.py      # TikTok webhooks
+        ├── tiktok_service.py      # TikTok webhooks
+        ├── cache_service.py       # Redis caching
+        ├── user_state_service.py  # User journey management
+        ├── clip_storage_service.py # Video clip storage
+        ├── smart_search_service.py # LLM-enhanced search
+        └── geolocation_service.py # IP-based location
 ```
 
 ## Permissions
@@ -306,4 +337,4 @@ For issues or questions, please refer to the documentation or create an issue in
 
 ---
 
-Built with ❤️ using SwiftUI
+Built with ❤️ using React Native + Expo

@@ -1,5 +1,6 @@
 import SwiftUI
 import UserNotifications
+import GoogleSignIn
 
 @main
 struct MovieLibraryApp: App {
@@ -12,12 +13,43 @@ struct MovieLibraryApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            AuthView()
                 .environmentObject(movieStore)
                 .environmentObject(notificationManager)
                 .onAppear {
                     notificationManager.requestAuthorization()
                 }
+                .onOpenURL { url in
+                    handleDeepLink(url)
+                }
+        }
+    }
+    
+    private func handleDeepLink(_ url: URL) {
+        // Handle Google Sign-In callback
+        if GIDSignIn.sharedInstance.handle(url) {
+            return
+        }
+        
+        // Handle movielibrary:// deep links
+        guard url.scheme == "movielibrary" else { return }
+        
+        // Handle account linking: movielibrary://link?token=...
+        if url.host == "link",
+           let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+           let token = components.queryItems?.first(where: { $0.name == "token" })?.value {
+            
+            Task {
+                do {
+                    try await AuthManager.shared.linkSocialMediaAccount(token: token)
+                    print("✅ Account linked via deep link")
+                } catch AuthError.notAuthenticated {
+                    // User not logged in - save token for after auth
+                    print("💾 Token saved, will link after authentication")
+                } catch {
+                    print("❌ Failed to link account: \(error.localizedDescription)")
+                }
+            }
         }
     }
     

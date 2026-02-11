@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "MovieFriend",
+    "slug": "movie-friend",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/Logo.png",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.luigirivolta.MovieLibrary",
+      "buildNumber": "1.0.0",
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.1092222459837-7do7dilb66ic4hsh8j03q7trjejcpkjh"
+            ]
+          }
+        ]
+      }
+    },
+    "android": {
+      "package": "com.luigirivolta.movielibrary"
+    },
+    "scheme": "movielibrary"
+  }
+}
