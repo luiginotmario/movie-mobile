@@ -16,6 +16,8 @@ from services.instagram_service import InstagramService
 from services.tiktok_service import TikTokService
 from services.user_state_service import UserStateService
 from services.clip_storage_service import ClipStorageService
+from services.smart_search_service import SmartSearchService
+from services.geolocation_service import GeolocationService
 from constants.user_states import UserState, Platform
 from config import settings
 
@@ -27,6 +29,8 @@ instagram = InstagramService()
 tiktok = TikTokService()
 user_state_service = UserStateService()  # TODO: Pass database client when available
 clip_storage_service = ClipStorageService()  # TODO: Pass storage client when available
+smart_search_service = SmartSearchService(openrouter, tmdb)
+geolocation = GeolocationService()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -176,6 +180,93 @@ async def get_user_clips(user_id: str, movie_id: Optional[str] = None):
     try:
         clips = await clip_storage_service.get_user_clips(user_id, movie_id)
         return {"clips": clips}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Smart Search API
+@app.get("/api/search/smart")
+async def smart_search(
+    query: str,
+    request: Request,
+    country: Optional[str] = None
+):
+    """
+    Intelligent movie search with natural language support
+    
+    Examples:
+        ?query=Inception                           → Direct TMDB search
+        ?query=movies about dreams                 → LLM-enhanced search
+        ?query=funny 90s movies with Jim Carrey    → Advanced filtered search
+        ?query=sci-fi movies like Interstellar     → Similarity search
+    
+    Args:
+        query: Search query (movie title or natural language)
+        country: Optional country code from iOS app (e.g., "US", "GB")
+        
+    Returns:
+        List of matching movies with streaming availability
+    """
+    try:
+        # Get user's country (from app hint or IP geolocation)
+        country_code = await geolocation.get_country_with_app_hint(request, country)
+        
+        # Perform smart search
+        results = await smart_search_service.search_movies(query, country_code)
+        
+        # Add streaming providers to results if country is known
+        if country_code and results:
+            for movie in results:
+                movie_id = movie.get("id")
+                if movie_id:
+                    # Fetch full details with streaming info
+                    full_details = await tmdb.get_movie_details(movie_id, country_code)
+                    if full_details and "streaming_providers" in full_details:
+                        movie["streaming_providers"] = full_details["streaming_providers"]
+        
+        return {
+            "query": query,
+            "country": country_code,
+            "results": results,
+            "count": len(results)
+        }
+        
+    except Exception as e:
+        print(f"Smart search error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/movie/{movie_id}")
+async def get_movie_with_streaming(
+    movie_id: str,
+    request: Request,
+    country: Optional[str] = None
+):
+    """
+    Get movie details with region-specific streaming availability
+    
+    Args:
+        movie_id: TMDB movie ID
+        country: Optional country code from app
+        
+    Returns:
+        Movie data with streaming providers for user's region
+    """
+    try:
+        # Get user's country
+        country_code = await geolocation.get_country_with_app_hint(request, country)
+        
+        # Get movie with streaming info
+        movie = await tmdb.get_movie_details(int(movie_id), country_code)
+        
+        if not movie:
+            raise HTTPException(status_code=404, detail="Movie not found")
+        
+        return {
+            "movie": movie,
+            "region": country_code
+        }
+        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

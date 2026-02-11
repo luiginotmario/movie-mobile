@@ -114,19 +114,24 @@ class TMDBService:
             print(f"Error searching TMDB: {e}")
             return None
     
-    async def get_movie_details(self, movie_id: int) -> Optional[Dict]:
+    async def get_movie_details(
+        self,
+        movie_id: int,
+        country_code: Optional[str] = None
+    ) -> Optional[Dict]:
         """
         Get detailed information about a movie with caching
         
         Args:
             movie_id: TMDB movie ID
+            country_code: Optional country code for streaming providers
             
         Returns:
             Detailed movie data
         """
-        # Check cache first
+        # Check cache first (without streaming data)
         cached_movie = self.cache.get_movie(str(movie_id))
-        if cached_movie:
+        if cached_movie and not country_code:
             return cached_movie
         
         # Cache miss - call API
@@ -137,7 +142,7 @@ class TMDBService:
                 f"/movie/{movie_id}",
                 params={
                     "api_key": self.api_key,
-                    "append_to_response": "credits,videos"
+                    "append_to_response": "credits,videos,watch/providers"
                 }
             )
             
@@ -162,8 +167,16 @@ class TMDBService:
                 "trailer_url": self._extract_trailer(data.get("videos", {}))
             }
             
-            # Cache the result
-            self.cache.set_movie(str(movie_id), movie_data)
+            # Add streaming providers if country specified
+            if country_code:
+                movie_data["streaming_providers"] = self._extract_watch_providers(
+                    data.get("watch/providers", {}),
+                    country_code
+                )
+            
+            # Cache the result (without streaming data for reusability)
+            base_movie_data = {k: v for k, v in movie_data.items() if k != "streaming_providers"}
+            self.cache.set_movie(str(movie_id), base_movie_data)
             
             return movie_data
             
@@ -191,6 +204,28 @@ class TMDBService:
             if video.get("site") == "YouTube" and video.get("type") == "Trailer":
                 return f"https://www.youtube.com/watch?v={video['key']}"
         return None
+    
+    def _extract_watch_providers(self, providers_data: Dict, country_code: str) -> Dict:
+        """
+        Extract streaming providers for specific country
+        
+        Args:
+            providers_data: Watch providers data from TMDB
+            country_code: Country code (e.g., "US", "GB")
+            
+        Returns:
+            Dict with categorized providers (stream, buy, rent, free)
+        """
+        results = providers_data.get("results", {})
+        country_data = results.get(country_code, {})
+        
+        return {
+            "stream": country_data.get("flatrate", []),  # Subscription streaming
+            "buy": country_data.get("buy", []),
+            "rent": country_data.get("rent", []),
+            "free": country_data.get("free", []),
+            "link": country_data.get("link", "")  # TMDB link for more info
+        }
     
     async def search_and_verify(self, vlm_response: str) -> Optional[Dict]:
         """

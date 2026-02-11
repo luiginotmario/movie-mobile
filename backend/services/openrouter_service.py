@@ -124,6 +124,48 @@ Example responses:
         
         return None
     
+    async def chat_completion(
+        self,
+        messages: List[dict],
+        model: str = "openai/gpt-4o-mini",
+        max_tokens: int = 200,
+        temperature: float = 0.3
+    ) -> str:
+        """
+        Simple chat completion for text-only queries
+        Used for natural language query parsing
+        
+        Args:
+            messages: List of chat messages
+            model: Model to use
+            max_tokens: Maximum response tokens
+            temperature: Response randomness (0-1)
+            
+        Returns:
+            Model response content
+        """
+        try:
+            response = await self.client.post(
+                "/chat/completions",
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature
+                }
+            )
+            
+            if response.status_code != 200:
+                print(f"Chat completion error: {response.status_code}")
+                return ""
+            
+            data = response.json()
+            return data["choices"][0]["message"]["content"]
+            
+        except Exception as e:
+            print(f"Error in chat_completion: {e}")
+            return ""
+    
     async def __aenter__(self):
         return self
     
