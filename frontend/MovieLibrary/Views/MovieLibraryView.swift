@@ -67,13 +67,7 @@ struct MoviePosterCard: View {
                 } else {
                     // Placeholder
                     Rectangle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.blue.opacity(0.3), Color.purple.opacity(0.3)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .fill(Color.white.opacity(0.1))
                         .overlay(
                             VStack {
                                 Image(systemName: "film")
@@ -81,7 +75,7 @@ struct MoviePosterCard: View {
                                     .foregroundColor(.white.opacity(0.6))
                                 
                                 Text(movie.title)
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.caption)
                                     .foregroundColor(.white.opacity(0.8))
                                     .multilineTextAlignment(.center)
                                     .lineLimit(3)
@@ -92,19 +86,22 @@ struct MoviePosterCard: View {
                 }
                 
                 // Status Badge
-                Image(systemName: movie.watchStatus.icon)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(6)
-                    .background(
-                        Circle()
-                            .fill(movie.watchStatus.color)
-                            .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-                    )
-                    .padding(8)
+                if let icon = movie.watchStatus.icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(6)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
+                        .padding(6)
+                }
             }
-            .cornerRadius(12)
-            .shadow(color: .black.opacity(0.4), radius: 8, x: 0, y: 4)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
             
             // Movie Title
             Text(movie.title)
@@ -117,11 +114,11 @@ struct MoviePosterCard: View {
             if let rating = movie.rating {
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
-                        .font(.system(size: 10))
+                        .font(.caption2)
                         .foregroundColor(.yellow)
                     
                     Text(String(format: "%.1f", rating))
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.caption2)
                         .foregroundColor(.gray)
                 }
             }
@@ -202,13 +199,7 @@ struct TVSeriesPosterCard: View {
                     }
                 } else {
                     Rectangle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.green.opacity(0.3), Color.blue.opacity(0.3)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .fill(Color.white.opacity(0.1))
                         .overlay(
                             VStack {
                                 Image(systemName: "tv")
@@ -216,7 +207,7 @@ struct TVSeriesPosterCard: View {
                                     .foregroundColor(.white.opacity(0.6))
                                 
                                 Text(series.title)
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.caption)
                                     .foregroundColor(.white.opacity(0.8))
                                     .multilineTextAlignment(.center)
                                     .lineLimit(3)
@@ -226,19 +217,22 @@ struct TVSeriesPosterCard: View {
                         .aspectRatio(2/3, contentMode: .fill)
                 }
                 
-                Image(systemName: series.watchStatus.icon)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(6)
-                    .background(
-                        Circle()
-                            .fill(series.watchStatus.color)
-                            .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-                    )
-                    .padding(8)
+                if let icon = series.watchStatus.icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(6)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
+                        .padding(6)
+                }
             }
-            .cornerRadius(12)
-            .shadow(color: .black.opacity(0.4), radius: 8, x: 0, y: 4)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
             
             Text(series.title)
                 .font(.system(size: 13, weight: .semibold))
@@ -246,7 +240,7 @@ struct TVSeriesPosterCard: View {
                 .lineLimit(2)
             
             Text("\(series.numberOfSeasons) Season\(series.numberOfSeasons != 1 ? "s" : "")")
-                .font(.system(size: 11, weight: .medium))
+                .font(.caption2)
                 .foregroundColor(.gray)
         }
     }
