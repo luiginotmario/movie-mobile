@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   StatusBar,
 } from 'react-native';
-import { HeaderTitle, FilterTabs, MovieCard } from '../components/home';
+import { HeaderTitle, FilterTabs, MovieCard, SearchButton } from '../components/home';
 import { ProfileModal } from '../components/ProfileModal';
 import { useFilteredLibrary } from '../hooks/useFilteredLibrary';
 import { SPACING, TYPOGRAPHY, COLORS } from '../utils/constants';
@@ -23,22 +23,53 @@ const MOCK_ITEMS: LibraryItem[] = [
     title: 'Inception',
     posterURL: 'https://image.tmdb.org/t/p/w500/9gk7adHYeDvHkCSEqAvQNLV5ur4.jpg',
     overview: 'A thief who steals corporate secrets...',
+    releaseDate: '2010-07-16',
     genres: [],
     cast: [],
     watchStatus: WatchStatus.Watched,
     dateAdded: new Date(),
     rating: 8.4,
+    rottenTomatoesScore: 87,
   },
   {
     id: '2',
     title: 'The Dark Knight',
     posterURL: 'https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg',
     overview: 'When the menace known as the Joker...',
+    releaseDate: '2008-07-18',
     genres: [],
     cast: [],
     watchStatus: WatchStatus.Watching,
     dateAdded: new Date(),
     rating: 9.0,
+    rottenTomatoesScore: 94,
+  },
+  {
+    id: '3',
+    title: 'Interstellar',
+    posterURL: 'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg',
+    overview: 'A team of explorers travel through a wormhole...',
+    releaseDate: '2014-11-07',
+    genres: [],
+    cast: [],
+    watchStatus: WatchStatus.WatchLater,
+    dateAdded: new Date(),
+    rating: 8.6,
+    rottenTomatoesScore: 72,
+  },
+  {
+    id: '4',
+    title: 'Parasite',
+    posterURL: 'https://image.tmdb.org/t/p/w500/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg',
+    overview: 'All unemployed, Ki-taek family takes peculiar interest...',
+    releaseDate: '2019-05-30',
+    genres: [],
+    cast: [],
+    watchStatus: WatchStatus.Watched,
+    dateAdded: new Date(),
+    rating: 8.5,
+    rottenTomatoesScore: 99,
+    isFavourite: true,
   },
 ];
 
@@ -70,6 +101,8 @@ export function HomeScreen({ onAvatarPress }: HomeScreenProps) {
 
         <FilterTabs active={filter} onTabChange={setFilter} />
 
+        <View style={{ height: 23 }} />
+
         {filtered.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyText}>No {mode === 'movies' ? 'movies' : 'shows'} yet</Text>
@@ -84,12 +117,14 @@ export function HomeScreen({ onAvatarPress }: HomeScreenProps) {
             numColumns={2}
             columnWrapperStyle={styles.row}
             contentContainerStyle={styles.grid}
+            showsVerticalScrollIndicator={false}
             renderItem={({ item }) => <MovieCard item={item} />}
           />
         )}
 
         <ProfileModal visible={showProfile} onClose={() => setShowProfile(false)} />
       </View>
+      <SearchButton onPress={() => console.log('Search pressed')} />
     </SafeAreaView>
   );
 }
@@ -109,7 +144,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     height: 51,
-    marginBottom: SPACING.md,
+    marginBottom: 11,
   },
   avatar: {
     width: 40,
@@ -121,9 +156,8 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.xxl,
   },
   row: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-    marginBottom: SPACING.lg,
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
   empty: {
     flex: 1,

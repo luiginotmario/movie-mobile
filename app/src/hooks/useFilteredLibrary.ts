@@ -10,8 +10,9 @@ export function useFilteredLibrary(
   return useMemo(() => {
     let filtered = items;
 
+    // Filter by media type
     if (mode === 'movies') {
-      filtered = filtered.filter((i) => 'releaseDate' in i);
+      filtered = filtered.filter((i) => !('numberOfSeasons' in i));
     } else {
       filtered = filtered.filter((i) => 'numberOfSeasons' in i);
     }

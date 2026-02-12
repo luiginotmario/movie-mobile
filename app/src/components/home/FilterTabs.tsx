@@ -44,11 +44,14 @@ export function FilterTabs({ active, onTabChange }: FilterTabsProps) {
 const styles = StyleSheet.create({
   scrollView: {
     marginHorizontal: -13,
+    height: 44,
+    flexGrow: 0,
   },
   scrollContent: {
     gap: 10,
-    paddingHorizontal: 13,
-    paddingBottom: 16,
+    paddingLeft: 15,
+    paddingRight: 13,
+    alignItems: 'center',
   },
   tab: {
     flexDirection: 'row',

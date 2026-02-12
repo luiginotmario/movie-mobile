@@ -1,17 +1,15 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
-import { SPACING, TYPOGRAPHY, COLORS, RADIUS } from '../../utils/constants';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { LibraryItem } from '../../utils/types';
 
-const POSTER_WIDTH = 150;
-const POSTER_HEIGHT = 226;
+const POSTER_WIDTH = 178;
+const POSTER_HEIGHT = 232;
+const ICON_SIZE = 20;
 
 interface MovieCardProps {
   item: LibraryItem;
   onPress?: () => void;
 }
-
-const ICON_SIZE = 16;
 
 export function MovieCard({ item, onPress }: MovieCardProps) {
   const title = item.title;
@@ -48,16 +46,19 @@ export function MovieCard({ item, onPress }: MovieCardProps) {
       {hasRating && (
         <View style={styles.ratingRow}>
           {rottenTomatoesScore != null && (
-            <>
+            <View style={styles.ratingGroup}>
               <Image source={require('../../../assets/Tomatos.png')} style={styles.icon} resizeMode="contain" />
               <Text style={styles.rating}>{rottenTomatoesScore}%</Text>
-            </>
+            </View>
+          )}
+          {rottenTomatoesScore != null && rating != null && (
+            <Text style={styles.separator}>·</Text>
           )}
           {rating != null && (
-            <>
+            <View style={styles.ratingGroup}>
               <Image source={require('../../../assets/tmdb.png')} style={styles.icon} resizeMode="contain" />
               <Text style={styles.rating}>{rating.toFixed(1)}</Text>
-            </>
+            </View>
           )}
         </View>
       )}
@@ -72,9 +73,20 @@ const styles = StyleSheet.create({
   posterWrapper: {
     width: POSTER_WIDTH,
     height: POSTER_HEIGHT,
-    borderRadius: RADIUS.md,
+    borderRadius: 10,
     overflow: 'hidden',
-    marginBottom: SPACING.sm,
+    marginBottom: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   poster: {
     width: '100%',
@@ -82,31 +94,51 @@ const styles = StyleSheet.create({
   },
   posterPlaceholder: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: '#E0E0E0',
     justifyContent: 'center',
     alignItems: 'center',
   },
   placeholderText: {
-    fontSize: TYPOGRAPHY.footnote,
-    color: COLORS.tertiary,
+    fontSize: 12,
+    color: 'rgba(0, 0, 0, 0.4)',
   },
   title: {
-    fontSize: TYPOGRAPHY.subhead,
-    fontWeight: '500',
-    color: COLORS.primary,
-    marginBottom: SPACING.xs,
+    fontFamily: Platform.select({ ios: 'SF Pro Text', default: 'System' }),
+    fontSize: 17,
+    fontWeight: '400',
+    color: '#000000',
+    letterSpacing: -0.408,
+    lineHeight: 22,
+    marginBottom: 3,
   },
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
+    gap: 6,
+  },
+  ratingGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
   icon: {
     width: ICON_SIZE,
     height: ICON_SIZE,
   },
+  separator: {
+    fontFamily: Platform.select({ ios: 'SF Pro Text', default: 'System' }),
+    fontSize: 12,
+    fontWeight: '400',
+    color: 'rgba(0, 0, 0, 0.4)',
+    letterSpacing: -0.408,
+    lineHeight: 22,
+  },
   rating: {
-    fontSize: TYPOGRAPHY.footnote,
-    color: COLORS.secondary,
+    fontFamily: Platform.select({ ios: 'SF Pro Text', default: 'System' }),
+    fontSize: 12,
+    fontWeight: '400',
+    color: 'rgba(0, 0, 0, 0.4)',
+    letterSpacing: -0.408,
+    lineHeight: 22,
   },
 });
