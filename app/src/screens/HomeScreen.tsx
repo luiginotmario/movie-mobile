@@ -9,6 +9,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { HeaderTitle, FilterTabs, MovieCard } from '../components/home';
+import { ProfileModal } from '../components/ProfileModal';
 import { useFilteredLibrary } from '../hooks/useFilteredLibrary';
 import { SPACING, TYPOGRAPHY, COLORS } from '../utils/constants';
 import { LibraryItem, FilterTab } from '../utils/types';
@@ -48,6 +49,7 @@ interface HomeScreenProps {
 export function HomeScreen({ onAvatarPress }: HomeScreenProps) {
   const [mode, setMode] = useState<LibraryMode>('movies');
   const [filter, setFilter] = useState<FilterTab>('all');
+  const [showProfile, setShowProfile] = useState(false);
 
   const filtered = useFilteredLibrary(MOCK_ITEMS, filter, mode);
 
@@ -60,7 +62,7 @@ export function HomeScreen({ onAvatarPress }: HomeScreenProps) {
           <HeaderTitle mode={mode} onModeChange={setMode} />
           <TouchableOpacity
             style={styles.avatar}
-            onPress={onAvatarPress}
+            onPress={() => setShowProfile(true)}
             accessibilityLabel="Profile"
             accessibilityRole="button"
           />
@@ -85,6 +87,8 @@ export function HomeScreen({ onAvatarPress }: HomeScreenProps) {
             renderItem={({ item }) => <MovieCard item={item} />}
           />
         )}
+
+        <ProfileModal visible={showProfile} onClose={() => setShowProfile(false)} />
       </View>
     </SafeAreaView>
   );

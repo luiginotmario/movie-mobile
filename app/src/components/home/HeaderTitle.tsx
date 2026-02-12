@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
-  Animated,
   Pressable,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
