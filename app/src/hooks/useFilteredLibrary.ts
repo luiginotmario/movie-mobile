@@ -19,8 +19,8 @@ export function useFilteredLibrary(
     switch (filter) {
       case 'watched':
         return filtered.filter((i) => i.watchStatus === WatchStatus.Watched);
-      case 'watching':
-        return filtered.filter((i) => i.watchStatus === WatchStatus.Watching);
+      case 'unwatched':
+        return filtered.filter((i) => i.watchStatus === WatchStatus.WatchLater);
       case 'favourites':
         return filtered.filter((i) => i.isFavourite === true);
       default:
