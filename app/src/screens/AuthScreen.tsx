@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   ImageBackground,
   TouchableOpacity,
   StyleSheet,
@@ -52,23 +53,17 @@ export default function AuthScreen() {
       >
         {/* Dark overlay gradient */}
         <LinearGradient
-          colors={['rgba(0, 0, 0, 0.7)', 'rgba(0, 0, 0, 0.85)']}
+          colors={['rgba(0, 0, 0, 0.05)', 'rgba(0, 0, 0, 0.7)', 'rgba(0, 0, 0, 0.8)']}
+          locations={[0, 0.5, 1]}
           style={styles.gradient}
         >
           <View style={styles.content}>
-            {/* Top Spacer */}
-            <View style={{ height: 120 }} />
-
-            {/* Logo Container */}
-            <View style={styles.logoContainer}>
-              {/* Logo background - rgb(0.50, 0.23, 0.27) = rgb(127, 59, 69) */}
-              <View style={styles.logoBackground}>
-                {/* Placeholder for actual logo image */}
-                <View style={styles.logoPlaceholder}>
-                  <Text style={styles.logoText}>M</Text>
-                </View>
-              </View>
-            </View>
+            {/* Logo - 66x66px with 14px rounded corners */}
+            <Image
+              source={require('../../assets/Logo.png')}
+              style={styles.logo}
+              resizeMode="cover"
+            />
 
             {/* App Title */}
             <Text style={styles.appTitle}>MovieFriend</Text>
@@ -99,9 +94,6 @@ export default function AuthScreen() {
             >
               <Text style={styles.skipButtonText}>Skip for now</Text>
             </TouchableOpacity>
-
-            {/* Bottom Spacer */}
-            <View style={{ height: 96 }} />
           </View>
         </LinearGradient>
       </ImageBackground>
@@ -125,60 +117,46 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
-  logoContainer: {
-    marginBottom: 24,
-  },
-  logoBackground: {
+  logo: {
     width: 66,
     height: 66,
-    borderRadius: 16,
-    backgroundColor: 'rgba(127, 59, 69, 0.5)', // rgb(0.50, 0.23, 0.27)
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoPlaceholder: {
-    width: 50,
-    height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoText: {
-    fontSize: 32,
-    fontWeight: '600',
-    color: '#FFF',
+    borderRadius: 14,
+    marginBottom: 24,
   },
   appTitle: {
     fontSize: 28,
     fontWeight: '500',
-    color: '#FFFFFF', // UIColor.label in dark mode
+    color: '#FFFFFF',
     marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.6)', // UIColor.secondaryLabel
+    color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
     paddingHorizontal: 32,
-    marginBottom: 64,
+    marginBottom: 82,
   },
   googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     height: 44,
-    paddingHorizontal: 16,
+    paddingHorizontal: 40,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    marginHorizontal: 16,
-    width: '100%',
+    width: '90%',
     maxWidth: 400,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
-    marginBottom: 64,
+    marginBottom: 69,
   },
   googleIcon: {
     width: 20,
@@ -192,10 +170,10 @@ const styles = StyleSheet.create({
   googleIconText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#4285F4', // Google blue
+    color: '#4285F4',
   },
   googleButtonText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '500',
     color: '#000',
   },
@@ -206,8 +184,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   skipButtonText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.6)', // UIColor.secondaryLabel
+    color: 'rgba(255, 255, 255, 0.6)',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#FFF',
+    textAlign: 'center',
   },
 });
