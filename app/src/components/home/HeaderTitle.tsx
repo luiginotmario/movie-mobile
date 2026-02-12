@@ -5,11 +5,12 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
-  Modal,
+  Animated,
   Pressable,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { SPACING, TYPOGRAPHY, COLORS, RADIUS } from '../../utils/constants';
+import ChevronIcon from '../../../assets/chevron-right.svg';
+import { SPACING } from '../../utils/constants';
 
 export type LibraryMode = 'movies' | 'tv';
 
@@ -25,33 +26,29 @@ interface HeaderTitleProps {
 
 export function HeaderTitle({ mode, onModeChange }: HeaderTitleProps) {
   const [dropdownVisible, setDropdownVisible] = useState(false);
-
   const currentLabel = OPTIONS.find((o) => o.value === mode)?.label ?? 'My Movies';
 
   return (
     <View style={styles.container}>
       <TouchableOpacity
         style={styles.trigger}
-        onPress={() => setDropdownVisible(true)}
+        onPress={() => setDropdownVisible(!dropdownVisible)}
+        activeOpacity={0.7}
         accessibilityLabel={`${currentLabel}, tap to change`}
         accessibilityRole="button"
       >
         <Text style={styles.title} numberOfLines={1}>
           {currentLabel}
         </Text>
-        <Text style={styles.chevron}>›</Text>
+        <ChevronIcon width={19} height={11} style={styles.chevron} />
       </TouchableOpacity>
 
-      <Modal
-        visible={dropdownVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDropdownVisible(false)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setDropdownVisible(false)}>
-          <Pressable style={styles.dropdown} onPress={(e) => e.stopPropagation()}>
-            <BlurView intensity={80} tint="dark" style={styles.blur}>
-              {OPTIONS.map((opt) => (
+      {dropdownVisible && (
+        <>
+          <Pressable style={styles.backdrop} onPress={() => setDropdownVisible(false)} />
+          <View style={styles.dropdownWrapper}>
+            <BlurView intensity={40} tint="light" style={styles.dropdown}>
+              {OPTIONS.map((opt, index) => (
                 <TouchableOpacity
                   key={opt.value}
                   style={styles.option}
@@ -62,72 +59,88 @@ export function HeaderTitle({ mode, onModeChange }: HeaderTitleProps) {
                   accessibilityLabel={opt.label}
                   accessibilityRole="menuitem"
                 >
-                  <Text style={[styles.optionText, opt.value === mode && styles.optionTextSelected]}>
-                    {opt.label}
-                  </Text>
+                  <Text style={styles.emoji}>{index === 0 ? '🎬' : '🍿'}</Text>
+                  <Text style={styles.optionText}>{opt.label}</Text>
                 </TouchableOpacity>
               ))}
             </BlurView>
-          </Pressable>
-        </Pressable>
-      </Modal>
+          </View>
+        </>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: SPACING.md,
+    flex: 1,
   },
   trigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
   },
   title: {
-    fontSize: TYPOGRAPHY.title,
-    fontWeight: '500',
-    color: COLORS.primary,
-    maxWidth: 280,
+    fontFamily: Platform.select({ ios: 'SF Pro Display', default: 'System' }),
+    fontSize: 34,
+    fontWeight: '700',
+    color: '#000000',
+    letterSpacing: 0.374,
+    lineHeight: 41,
   },
   chevron: {
-    fontSize: 24,
-    color: COLORS.primary,
-    transform: [{ rotate: '90deg' }],
+    marginLeft: 4,
   },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.4)',
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
+  },
+  dropdownWrapper: {
+    position: 'absolute',
+    top: 50,
+    left: 0,
+    zIndex: 1000,
   },
   dropdown: {
+    overflow: 'hidden',
+    borderRadius: 32,
+    backgroundColor: 'rgba(245, 245, 245, 0.6)',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    minWidth: 160,
     ...Platform.select({
       ios: {
-        overflow: 'hidden',
-        borderRadius: RADIUS.lg,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
       },
       android: {
-        borderRadius: RADIUS.lg,
+        elevation: 8,
       },
     }),
-    minWidth: 200,
-  },
-  blur: {
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    backgroundColor: 'rgba(37, 37, 37, 0.6)',
-    borderRadius: RADIUS.lg,
   },
   option: {
-    paddingVertical: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 11,
+    paddingHorizontal: 6,
+  },
+  emoji: {
+    fontSize: 15,
+    width: 28,
+    textAlign: 'center',
+    marginRight: 8,
   },
   optionText: {
-    fontSize: TYPOGRAPHY.body,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  optionTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '600',
+    fontFamily: Platform.select({ ios: 'SF Pro', default: 'System' }),
+    fontSize: 15,
+    fontWeight: '400',
+    color: '#1A1A1A',
+    letterSpacing: 0.2,
+    lineHeight: 18,
   },
 });

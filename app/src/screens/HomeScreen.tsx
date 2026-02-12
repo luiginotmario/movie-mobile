@@ -55,17 +55,15 @@ export function HomeScreen({ onAvatarPress }: HomeScreenProps) {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.container}>
-        {/* Header: avatar + title */}
+        {/* Header: title + avatar */}
         <View style={styles.header}>
+          <HeaderTitle mode={mode} onModeChange={setMode} />
           <TouchableOpacity
             style={styles.avatar}
             onPress={onAvatarPress}
             accessibilityLabel="Profile"
             accessibilityRole="button"
           />
-          <View style={styles.headerTitle}>
-            <HeaderTitle mode={mode} onModeChange={setMode} />
-          </View>
         </View>
 
         <FilterTabs active={filter} onTabChange={setFilter} />
@@ -99,12 +97,14 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: 13,
     paddingTop: SPACING.md,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 51,
     marginBottom: SPACING.md,
   },
   avatar: {
@@ -112,10 +112,6 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     backgroundColor: COLORS.avatarPlaceholder,
-    marginRight: SPACING.md,
-  },
-  headerTitle: {
-    flex: 1,
   },
   grid: {
     paddingBottom: SPACING.xxl,
