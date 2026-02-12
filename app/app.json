@@ -5,6 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/Logo.png",
+    "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.luigirivolta.MovieLibrary",
@@ -12,9 +13,7 @@
       "infoPlist": {
         "CFBundleURLTypes": [
           {
-            "CFBundleURLSchemes": [
-              "com.googleusercontent.apps.1092222459837-7do7dilb66ic4hsh8j03q7trjejcpkjh"
-            ]
+            "CFBundleURLSchemes": ["com.googleusercontent.apps.1092222459837-7do7dilb66ic4hsh8j03q7trjejcpkjh"]
           }
         ]
       }

@@ -9,6 +9,7 @@ WebBrowser.maybeCompleteAuthSession();
 interface AuthContextType {
   isAuthenticated: boolean;
   isGuestMode: boolean;
+  isInitialized: boolean;
   currentUserId: string | null;
   signInWithGoogle: () => Promise<void>;
   continueAsGuest: () => void;
@@ -21,6 +22,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isGuestMode, setIsGuestMode] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [pendingLinkToken, setPendingLinkToken] = useState<string | null>(null);
 
@@ -68,6 +70,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('Error checking auth status:', error);
+    } finally {
+      setIsInitialized(true);
     }
   };
 
@@ -148,6 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         isAuthenticated,
         isGuestMode,
+        isInitialized,
         currentUserId,
         signInWithGoogle,
         continueAsGuest,

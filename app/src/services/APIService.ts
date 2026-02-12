@@ -139,6 +139,68 @@ class APIService {
   }
 
   /**
+   * Get trending movies (for homepage)
+   */
+  async getTrendingMovies(timeWindow: 'day' | 'week' = 'week'): Promise<Movie[]> {
+    try {
+      const url = `${this.tmdbBaseURL}/trending/movie/${timeWindow}?api_key=${this.tmdbAPIKey}`;
+
+      const response = await axios.get<TMDBSearchResponse>(url);
+      
+      return response.data.results.map((tmdbMovie) => ({
+        id: String(tmdbMovie.id),
+        title: tmdbMovie.title,
+        posterURL: tmdbMovie.poster_path
+          ? `${this.imageBaseURL}/w500${tmdbMovie.poster_path}`
+          : undefined,
+        backdropURL: tmdbMovie.backdrop_path
+          ? `${this.imageBaseURL}/w1280${tmdbMovie.backdrop_path}`
+          : undefined,
+        overview: tmdbMovie.overview,
+        releaseDate: tmdbMovie.release_date,
+        rating: tmdbMovie.vote_average,
+        genres: [],
+        cast: [],
+        watchStatus: WatchStatus.WatchLater,
+        dateAdded: new Date(),
+      }));
+    } catch (error) {
+      throw new APIError('Failed to get trending movies');
+    }
+  }
+
+  /**
+   * Get popular movies (for homepage)
+   */
+  async getPopularMovies(): Promise<Movie[]> {
+    try {
+      const url = `${this.tmdbBaseURL}/movie/popular?api_key=${this.tmdbAPIKey}`;
+
+      const response = await axios.get<TMDBSearchResponse>(url);
+      
+      return response.data.results.map((tmdbMovie) => ({
+        id: String(tmdbMovie.id),
+        title: tmdbMovie.title,
+        posterURL: tmdbMovie.poster_path
+          ? `${this.imageBaseURL}/w500${tmdbMovie.poster_path}`
+          : undefined,
+        backdropURL: tmdbMovie.backdrop_path
+          ? `${this.imageBaseURL}/w1280${tmdbMovie.backdrop_path}`
+          : undefined,
+        overview: tmdbMovie.overview,
+        releaseDate: tmdbMovie.release_date,
+        rating: tmdbMovie.vote_average,
+        genres: [],
+        cast: [],
+        watchStatus: WatchStatus.WatchLater,
+        dateAdded: new Date(),
+      }));
+    } catch (error) {
+      throw new APIError('Failed to get popular movies');
+    }
+  }
+
+  /**
    * Get YouTube URL for a video
    */
   getYoutubeURL(video: TMDBVideo): string | null {

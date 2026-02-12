@@ -7,8 +7,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  useColorScheme,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -16,9 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function AuthScreen() {
-  const { signInWithGoogle, continueAsGuest, isAuthenticated, isGuestMode } = useAuth();
+  const { signInWithGoogle, continueAsGuest } = useAuth();
   const [loading, setLoading] = useState(false);
-  const colorScheme = useColorScheme(); // Will be 'dark' forced
   const insets = useSafeAreaInsets();
 
   const handleGoogleSignIn = async () => {
@@ -36,19 +35,9 @@ export default function AuthScreen() {
     continueAsGuest();
   };
 
-  // If authenticated or guest, would navigate to main app
-  // For now, just show the auth screen
-  if (isAuthenticated || isGuestMode) {
-    // TODO: Navigate to ContentView equivalent
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Welcome to MovieFriend!</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
       <ImageBackground
         source={require('../../assets/Container.png')}
         style={styles.backgroundImage}

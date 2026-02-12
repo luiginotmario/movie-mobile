@@ -18,6 +18,7 @@ export interface Movie {
   dateAdded: Date;
   userRating?: number;
   notes?: string;
+  isFavourite?: boolean;
   sourceService?: StreamingService;
 }
 
@@ -32,6 +33,7 @@ export interface TVSeries {
   currentSeason?: number;
   currentEpisode?: number;
   dateAdded: Date;
+  isFavourite?: boolean;
   sourceService?: StreamingService;
 }
 
