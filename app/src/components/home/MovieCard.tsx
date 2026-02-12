@@ -1,9 +1,12 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Platform, Dimensions } from 'react-native';
 import { LibraryItem } from '../../utils/types';
 
-const POSTER_WIDTH = 178;
-const POSTER_HEIGHT = 232;
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const HORIZONTAL_PADDING = 13 * 2; // 13px on each side
+const COLUMN_GAP = 11;
+const POSTER_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING - COLUMN_GAP) / 2;
+const POSTER_HEIGHT = POSTER_WIDTH * 1.3; // Maintain aspect ratio
 const ICON_SIZE = 20;
 
 interface MovieCardProps {

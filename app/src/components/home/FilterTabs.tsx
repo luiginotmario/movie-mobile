@@ -1,6 +1,11 @@
 import React from 'react';
-import { Text, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
+import { Text, TouchableOpacity, StyleSheet, ScrollView, Platform, LayoutAnimation, UIManager } from 'react-native';
 import type { FilterTab } from '../../utils/types';
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const TABS: FilterTab[] = ['all', 'watched', 'favourites', 'unwatched'];
 
@@ -17,6 +22,17 @@ interface FilterTabsProps {
 }
 
 export function FilterTabs({ active, onTabChange }: FilterTabsProps) {
+  const handleTabPress = (tab: FilterTab) => {
+    LayoutAnimation.configureNext(
+      LayoutAnimation.create(
+        200,
+        LayoutAnimation.Types.easeInEaseOut,
+        LayoutAnimation.Properties.opacity
+      )
+    );
+    onTabChange(tab);
+  };
+
   return (
     <ScrollView
       horizontal
@@ -28,7 +44,7 @@ export function FilterTabs({ active, onTabChange }: FilterTabsProps) {
         <TouchableOpacity
           key={tab}
           style={[styles.tab, tab === active && styles.tabActive]}
-          onPress={() => onTabChange(tab)}
+          onPress={() => handleTabPress(tab)}
           accessibilityLabel={TAB_CONFIG[tab].label}
           accessibilityRole="tab"
           accessibilityState={{ selected: tab === active }}
