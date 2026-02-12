@@ -11,12 +11,15 @@ import {
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function AuthScreen() {
   const { signInWithGoogle, continueAsGuest, isAuthenticated, isGuestMode } = useAuth();
   const [loading, setLoading] = useState(false);
   const colorScheme = useColorScheme(); // Will be 'dark' forced
+  const insets = useSafeAreaInsets();
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
@@ -57,6 +60,10 @@ export default function AuthScreen() {
           locations={[0, 0.5, 1]}
           style={styles.gradient}
         >
+          {/* Spacer to push content down */}
+          <View style={{ flex: 1 }} />
+
+          {/* Content Container at bottom */}
           <View style={styles.content}>
             {/* Logo - 66x66px with 14px rounded corners */}
             <Image
@@ -79,21 +86,28 @@ export default function AuthScreen() {
               accessibilityLabel="Continue with Google"
               accessibilityHint="Sign in using your Google account"
             >
-              <View style={styles.googleIcon}>
-                <Text style={styles.googleIconText}>G</Text>
-              </View>
+              <Image
+                source={require('../../assets/Google.png')}
+                style={styles.googleIcon}
+                resizeMode="contain"
+              />
               <Text style={styles.googleButtonText}>Continue with Google</Text>
             </TouchableOpacity>
 
-            {/* Skip for now Button */}
+            {/* Skip for now Button with Blur Effect */}
             <TouchableOpacity
-              style={styles.skipButton}
               onPress={handleSkip}
               accessibilityLabel="Skip for now"
               accessibilityHint="Continue using the app without signing in"
+              style={styles.skipButtonContainer}
             >
-              <Text style={styles.skipButtonText}>Skip for now</Text>
+              <BlurView intensity={80} tint="dark" style={styles.skipButton}>
+                <Text style={styles.skipButtonText}>Skip for now</Text>
+              </BlurView>
             </TouchableOpacity>
+
+            {/* Bottom safe area padding */}
+            <View style={{ height: Math.max(insets.bottom, 32) + 48 }} />
           </View>
         </LinearGradient>
       </ImageBackground>
@@ -115,10 +129,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flex: 1,
+    width: '100%',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 20, // iOS standard margin
   },
   logo: {
     width: 66,
@@ -139,7 +152,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
     paddingHorizontal: 32,
-    marginBottom: 82,
+    marginBottom: 32, 
   },
   googleButton: {
     flexDirection: 'row',
@@ -151,42 +164,45 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     width: '90%',
     maxWidth: 400,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-    marginBottom: 69,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+    marginBottom: 25, // 25px gap to Skip button as specified
   },
   googleIcon: {
     width: 20,
     height: 20,
-    borderRadius: 10,
-    backgroundColor: '#FFF',
-    alignItems: 'center',
-    justifyContent: 'center',
     marginRight: 12,
-  },
-  googleIconText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#4285F4',
   },
   googleButtonText: {
     fontSize: 16,
     fontWeight: '500',
     color: '#000',
   },
+  skipButtonContainer: {
+    overflow: 'hidden',
+    borderRadius: 26, // Fully rounded pill shape from Figma
+  },
   skipButton: {
     height: 44,
     paddingHorizontal: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(37, 37, 37, 0.55)', // Base background from Figma
+    borderRadius: 26,
   },
   skipButtonText: {
-    fontSize: 16,
+    fontSize: 15, // 15px from Figma
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: '#FFFFFF',
   },
   title: {
     fontSize: 24,
