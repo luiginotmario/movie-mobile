@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { Platform } from 'react-native';
 import { Config } from '../config';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -12,6 +14,7 @@ interface AuthContextType {
   isInitialized: boolean;
   currentUserId: string | null;
   signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
   continueAsGuest: () => void;
   signOut: () => void;
   handleDeepLink: (token: string) => void;
@@ -106,6 +109,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const signInWithApple = async () => {
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      // Here you would send the credential to your Supabase backend
+      // For now, simulate successful login
+      const mockUserId = 'apple_' + Date.now();
+      await AsyncStorage.setItem('supabaseUserId', mockUserId);
+      setCurrentUserId(mockUserId);
+      setIsAuthenticated(true);
+      setIsGuestMode(false);
+
+      // Handle pending link token if any
+      if (pendingLinkToken) {
+        console.log('Linking social media account with token:', pendingLinkToken);
+        // await APIService.linkAccount(mockUserId, pendingLinkToken);
+        setPendingLinkToken(null);
+      }
+
+      console.log('Apple sign-in successful:', credential);
+    } catch (error: any) {
+      if (error.code === 'ERR_CANCELED') {
+        // User canceled the sign-in
+        console.log('Apple sign-in canceled');
+      } else {
+        console.error('Apple sign-in error:', error);
+        throw error;
+      }
+    }
+  };
+
   const continueAsGuest = async () => {
     try {
       let anonymousId = await AsyncStorage.getItem('anonymousUserId');
@@ -155,6 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isInitialized,
         currentUserId,
         signInWithGoogle,
+        signInWithApple,
         continueAsGuest,
         signOut,
         handleDeepLink,

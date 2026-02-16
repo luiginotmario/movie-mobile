@@ -12,8 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
-import { SPACING } from '../utils/constants';
-import { AvatarPicker, AVATAR_OPTIONS } from './AvatarPicker';
+import { AvatarPicker } from './AvatarPicker';
 import type { AvatarOption } from './AvatarPicker';
 
 interface ProfileModalProps {
@@ -24,7 +23,7 @@ interface ProfileModalProps {
 }
 
 export function ProfileModal({ visible, onClose, selectedAvatar, onAvatarChange }: ProfileModalProps) {
-  const { currentUserId, isGuestMode, signOut } = useAuth();
+  const { isGuestMode, signOut } = useAuth();
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   const handleSignOut = () => {

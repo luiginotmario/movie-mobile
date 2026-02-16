@@ -10,6 +10,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.luigirivolta.MovieLibrary",
       "buildNumber": "1.0.0",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "CFBundleURLTypes": [
           {

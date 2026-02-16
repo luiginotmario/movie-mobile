@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function AuthScreen() {
-  const { signInWithGoogle, continueAsGuest } = useAuth();
+  const { signInWithGoogle, signInWithApple, continueAsGuest } = useAuth();
   const [loading, setLoading] = useState(false);
   const insets = useSafeAreaInsets();
 
@@ -26,6 +26,17 @@ export default function AuthScreen() {
       await signInWithGoogle();
     } catch (error: any) {
       Alert.alert('Authentication Error', error.message || 'Failed to sign in');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setLoading(true);
+    try {
+      await signInWithApple();
+    } catch (error: any) {
+      Alert.alert('Authentication Error', error.message || 'Failed to sign in with Apple');
     } finally {
       setLoading(false);
     }
@@ -82,6 +93,20 @@ export default function AuthScreen() {
               />
               <Text style={styles.googleButtonText}>Continue with Google</Text>
             </TouchableOpacity>
+
+            {/* Continue with Apple Button */}
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity
+                style={styles.appleButton}
+                onPress={handleAppleSignIn}
+                disabled={loading}
+                accessibilityLabel="Continue with Apple"
+                accessibilityHint="Sign in using your Apple ID"
+              >
+                <Text style={styles.appleIcon}></Text>
+                <Text style={styles.appleButtonText}>Continue with Apple</Text>
+              </TouchableOpacity>
+            )}
 
             {/* Skip for now Button with Blur Effect */}
             <TouchableOpacity
@@ -164,7 +189,7 @@ const styles = StyleSheet.create({
         elevation: 2,
       },
     }),
-    marginBottom: 25, // 25px gap to Skip button as specified
+    marginBottom: 12, // Reduced to fit Apple button
   },
   googleIcon: {
     width: 20,
@@ -175,6 +200,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: '#000',
+  },
+  appleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 44,
+    paddingHorizontal: 40,
+    backgroundColor: '#000000',
+    borderRadius: 12,
+    width: '90%',
+    maxWidth: 400,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+    marginBottom: 13, // 12px + 13px = 25px total gap (same as before)
+  },
+  appleIcon: {
+    fontSize: 18,
+    marginRight: 12,
+    color: '#FFFFFF',
+  },
+  appleButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#FFFFFF',
   },
   skipButtonContainer: {
     overflow: 'hidden',

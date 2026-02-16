@@ -16,7 +16,7 @@ import { ProfileModal } from '../components/ProfileModal';
 import { SearchSheet } from '../components/SearchSheet';
 import { MovieDetailScreen } from './MovieDetailScreen';
 import { useFilteredLibrary } from '../hooks/useFilteredLibrary';
-import { SPACING, TYPOGRAPHY, COLORS } from '../utils/constants';
+import { SPACING, COLORS } from '../utils/constants';
 import { LibraryItem, FilterTab } from '../utils/types';
 import { WatchStatus, Movie } from '../types/models';
 import { AVATAR_OPTIONS } from '../components/AvatarPicker';
@@ -79,11 +79,7 @@ const MOCK_ITEMS: LibraryItem[] = [
   },
 ];
 
-interface HomeScreenProps {
-  onAvatarPress?: () => void;
-}
-
-export function HomeScreen({ onAvatarPress }: HomeScreenProps) {
+export function HomeScreen() {
   const [mode, setMode] = useState<LibraryMode>('movies');
   const [filter, setFilter] = useState<FilterTab>('all');
   const [showProfile, setShowProfile] = useState(false);

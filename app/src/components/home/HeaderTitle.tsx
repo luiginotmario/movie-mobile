@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import ChevronIcon from '../../../assets/chevron-right.svg';
-import { SPACING } from '../../utils/constants';
 
 export type LibraryMode = 'movies' | 'tv';
 
