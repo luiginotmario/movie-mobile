@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { HeaderTitle, FilterTabs, MovieCard, SearchButton } from '../components/home';
 import { ProfileModal } from '../components/ProfileModal';
+import { SearchSheet } from '../components/SearchSheet';
 import { useFilteredLibrary } from '../hooks/useFilteredLibrary';
 import { SPACING, TYPOGRAPHY, COLORS } from '../utils/constants';
 import { LibraryItem, FilterTab } from '../utils/types';
@@ -81,8 +82,34 @@ export function HomeScreen({ onAvatarPress }: HomeScreenProps) {
   const [mode, setMode] = useState<LibraryMode>('movies');
   const [filter, setFilter] = useState<FilterTab>('all');
   const [showProfile, setShowProfile] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [library, setLibrary] = useState<LibraryItem[]>(MOCK_ITEMS);
 
-  const filtered = useFilteredLibrary(MOCK_ITEMS, filter, mode);
+  const handleAddMovie = (movieId: string, movieData?: Partial<LibraryItem>) => {
+    // Check if already in library
+    if (library.find((item) => item.id === movieId)) {
+      // Remove from library
+      setLibrary((prev) => prev.filter((item) => item.id !== movieId));
+    } else {
+      // Add to library
+      const newItem: LibraryItem = {
+        id: movieId,
+        title: movieData?.title || 'Unknown',
+        posterURL: movieData?.posterURL || '',
+        overview: movieData?.overview || '',
+        releaseDate: movieData?.releaseDate || '',
+        genres: movieData?.genres || [],
+        cast: movieData?.cast || [],
+        watchStatus: WatchStatus.WatchLater,
+        dateAdded: new Date(),
+        rating: movieData?.rating,
+        rottenTomatoesScore: movieData?.rottenTomatoesScore,
+      };
+      setLibrary((prev) => [...prev, newItem]);
+    }
+  };
+
+  const filtered = useFilteredLibrary(library, filter, mode);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -123,8 +150,14 @@ export function HomeScreen({ onAvatarPress }: HomeScreenProps) {
         )}
 
         <ProfileModal visible={showProfile} onClose={() => setShowProfile(false)} />
+        <SearchSheet
+          visible={showSearch}
+          onClose={() => setShowSearch(false)}
+          onAddItem={handleAddMovie}
+          libraryIds={library.map((item) => item.id)}
+        />
       </View>
-      <SearchButton onPress={() => console.log('Search pressed')} />
+      <SearchButton onPress={() => setShowSearch(true)} />
     </SafeAreaView>
   );
 }
