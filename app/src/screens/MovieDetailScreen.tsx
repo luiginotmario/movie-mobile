@@ -64,32 +64,32 @@ export function MovieDetailScreen({ item, onBack }: MovieDetailScreenProps) {
 
       {/* Ratings Badge - Fixed */}
       <View style={styles.ratingsBadge}>
-            <BlurView intensity={80} tint="dark" style={styles.ratingsBadgeBlur}>
-              <View style={styles.ratingsContent}>
-                {rottenTomatoesScore && (
-                  <>
-                    <Image
-                      source={require('../../assets/Tomatos.png')}
-                      style={styles.ratingIcon}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.ratingText}>{rottenTomatoesScore}%</Text>
-                    <Text style={styles.ratingSeparator}>·</Text>
-                  </>
-                )}
-                {rating && (
-                  <>
-                    <Image
-                      source={require('../../assets/tmdb.png')}
-                      style={styles.ratingIcon}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
-                  </>
-                )}
-              </View>
-            </BlurView>
+        <BlurView intensity={80} tint="dark" style={styles.ratingsBadgeBlur}>
+          <View style={styles.ratingsContent}>
+            {rottenTomatoesScore && (
+              <>
+                <Image
+                  source={require('../../assets/Tomatos.png')}
+                  style={styles.ratingIcon}
+                  resizeMode="contain"
+                />
+                <Text style={styles.ratingText}>{rottenTomatoesScore}%</Text>
+                <Text style={styles.ratingSeparator}>·</Text>
+              </>
+            )}
+            {rating && (
+              <>
+                <Image
+                  source={require('../../assets/tmdb.png')}
+                  style={styles.ratingIcon}
+                  resizeMode="contain"
+                />
+                <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
+              </>
+            )}
           </View>
+        </BlurView>
+      </View>
 
       <ScrollView
         style={styles.scrollView}
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
   ratingsBadge: {
     position: 'absolute',
