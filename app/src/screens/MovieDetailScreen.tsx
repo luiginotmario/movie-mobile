@@ -8,9 +8,11 @@ import {
   StyleSheet,
   Platform,
   Dimensions,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { LibraryItem } from '../utils/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -18,6 +20,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 interface MovieDetailScreenProps {
   item: LibraryItem;
   onBack: () => void;
+  onToggleLibrary?: () => void;
+  isInLibrary?: boolean;
 }
 
 // Mock streaming providers
@@ -36,21 +40,38 @@ const MOCK_CAST = [
   { id: '4', name: 'Matt Damon', photo: 'https://via.placeholder.com/80' },
 ];
 
-export function MovieDetailScreen({ item, onBack }: MovieDetailScreenProps) {
+export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary = false }: MovieDetailScreenProps) {
   const getYear = () => {
     const releaseDate = 'releaseDate' in item ? item.releaseDate : 'firstAirDate' in item ? item.firstAirDate : null;
-    if (!releaseDate) return 'N/A';
+    if (!releaseDate || typeof releaseDate !== 'string') return 'N/A';
     return releaseDate.split('-')[0];
   };
 
   const getGenres = () => {
     const genres = 'genres' in item ? item.genres : [];
     if (!genres || genres.length === 0) return 'Action · Sci-fi';
-    return genres.map((g: { name: string }) => g.name).join(' · ');
+    return genres.join(' · ');
   };
 
   const rottenTomatoesScore = 'rottenTomatoesScore' in item ? item.rottenTomatoesScore : undefined;
   const rating = 'rating' in item ? item.rating : undefined;
+
+  const handleShare = async () => {
+    try {
+      const shareOptions: any = {
+        title: item.title,
+        message: `Check out ${item.title}!`,
+      };
+      
+      if (Platform.OS === 'ios' && item.posterURL) {
+        shareOptions.url = item.posterURL;
+      }
+      
+      await Share.share(shareOptions);
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -61,35 +82,46 @@ export function MovieDetailScreen({ item, onBack }: MovieDetailScreenProps) {
         resizeMode="cover"
       />
       <View style={styles.backgroundOverlay} />
+      
+      {/* Top Gradient for cleaner fade */}
+      <LinearGradient
+        colors={['rgba(0, 0, 0, 0.8)', 'rgba(0, 0, 0, 0)']}
+        style={styles.topGradient}
+        pointerEvents="none"
+      />
 
       {/* Ratings Badge - Fixed */}
-      <View style={styles.ratingsBadge}>
-        <BlurView intensity={80} tint="dark" style={styles.ratingsBadgeBlur}>
-          <View style={styles.ratingsContent}>
-            {rottenTomatoesScore && (
-              <>
-                <Image
-                  source={require('../../assets/Tomatos.png')}
-                  style={styles.ratingIcon}
-                  resizeMode="contain"
-                />
-                <Text style={styles.ratingText}>{rottenTomatoesScore}%</Text>
-                <Text style={styles.ratingSeparator}>·</Text>
-              </>
-            )}
-            {rating && (
-              <>
-                <Image
-                  source={require('../../assets/tmdb.png')}
-                  style={styles.ratingIcon}
-                  resizeMode="contain"
-                />
-                <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
-              </>
-            )}
-          </View>
-        </BlurView>
-      </View>
+      <SafeAreaView style={styles.ratingsBadgeContainer} edges={['top']}>
+        <View style={styles.ratingsBadge}>
+          <View style={styles.glassBorder} />
+          <View style={styles.glassBackground} />
+          <BlurView intensity={95} tint="dark" style={styles.ratingsBadgeBlur}>
+            <View style={styles.ratingsContent}>
+              {rottenTomatoesScore && (
+                <>
+                  <Image
+                    source={require('../../assets/Tomatos.png')}
+                    style={styles.ratingIcon}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.ratingText}>{rottenTomatoesScore}%</Text>
+                  <Text style={styles.ratingSeparator}>·</Text>
+                </>
+              )}
+              {rating && (
+                <>
+                  <Image
+                    source={require('../../assets/tmdb.png')}
+                    style={styles.ratingIcon}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
+                </>
+              )}
+            </View>
+          </BlurView>
+        </View>
+      </SafeAreaView>
 
       <ScrollView
         style={styles.scrollView}
@@ -112,17 +144,34 @@ export function MovieDetailScreen({ item, onBack }: MovieDetailScreenProps) {
             <TouchableOpacity style={styles.trailerButton}>
               <Text style={styles.trailerButtonText}>▶ Trailer</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.iconButton}>
-              <Text style={styles.iconButtonText}>+</Text>
+            <TouchableOpacity
+              style={[styles.iconButton, isInLibrary && styles.iconButtonActive]}
+              onPress={onToggleLibrary}
+            >
+              {isInLibrary ? (
+                <Text style={styles.checkmarkIcon}>✓</Text>
+              ) : (
+                <Image
+                  source={require('../../assets/Icon.png')}
+                  style={styles.plusIcon}
+                  resizeMode="contain"
+                />
+              )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.iconButton}>
-              <Text style={styles.iconButtonText}>􀈂</Text>
+            <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
+              <Image
+                source={require('../../assets/SF Symbol.png')}
+                style={styles.shareIcon}
+                resizeMode="contain"
+              />
             </TouchableOpacity>
           </View>
 
           {/* Description */}
           <View style={styles.glassCard}>
-            <BlurView intensity={80} tint="dark" style={styles.glassCardBlur}>
+            <View style={styles.glassBorder} />
+            <View style={styles.glassBackground} />
+            <BlurView intensity={95} tint="dark" style={styles.glassCardBlur}>
               <Text style={styles.sectionTitle}>Description</Text>
               <Text style={styles.descriptionText}>
                 {item.overview ||
@@ -144,7 +193,9 @@ export function MovieDetailScreen({ item, onBack }: MovieDetailScreenProps) {
             <View style={styles.providersGrid}>
               {STREAMING_PROVIDERS.map((provider) => (
                 <View key={provider.id} style={styles.providerCard}>
-                  <BlurView intensity={80} tint="dark" style={styles.providerCardBlur}>
+                  <View style={styles.glassBorder} />
+                  <View style={styles.glassBackground} />
+                  <BlurView intensity={95} tint="dark" style={styles.providerCardBlur}>
                     <Image
                       source={{ uri: provider.logo }}
                       style={styles.providerLogo}
@@ -152,7 +203,11 @@ export function MovieDetailScreen({ item, onBack }: MovieDetailScreenProps) {
                     />
                     <View style={styles.providerInfo}>
                       <Text style={styles.providerName}>{provider.name}</Text>
-                      <Text style={styles.providerIcon}>􀱀</Text>
+                      <Image
+                        source={require('../../assets/􀱀.png')}
+                        style={styles.providerLinkIcon}
+                        resizeMode="contain"
+                      />
                     </View>
                   </BlurView>
                 </View>
@@ -162,7 +217,9 @@ export function MovieDetailScreen({ item, onBack }: MovieDetailScreenProps) {
 
           {/* Cast */}
           <View style={styles.glassCard}>
-            <BlurView intensity={80} tint="dark" style={styles.glassCardBlur}>
+            <View style={styles.glassBorder} />
+            <View style={styles.glassBackground} />
+            <BlurView intensity={95} tint="dark" style={styles.glassCardBlur}>
               <Text style={styles.sectionTitle}>Cast</Text>
               <ScrollView
                 horizontal
@@ -194,7 +251,11 @@ export function MovieDetailScreen({ item, onBack }: MovieDetailScreenProps) {
           accessibilityRole="button"
         >
           <BlurView intensity={80} tint="light" style={styles.backButtonBlur}>
-            <Text style={styles.backButtonIcon}>􀆉</Text>
+            <Image
+              source={require('../../assets/chevron-back.png')}
+              style={styles.backButtonIcon}
+              resizeMode="contain"
+            />
           </BlurView>
         </TouchableOpacity>
       </SafeAreaView>
@@ -228,17 +289,40 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  topGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 150,
+    zIndex: 5,
+  },
+  ratingsBadgeContainer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    zIndex: 10,
   },
   ratingsBadge: {
-    position: 'absolute',
-    top: 85,
-    right: 20,
+    marginTop: 31,
+    marginRight: 17,
+    borderRadius: 25,
+    overflow: 'hidden',
+  },
+  glassBorder: {
+    ...StyleSheet.absoluteFillObject,
     borderRadius: 25,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.4)',
-    overflow: 'hidden',
-    zIndex: 10,
+    pointerEvents: 'none',
+  },
+  glassBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 25,
+    backgroundColor: 'rgba(128, 128, 128, 0.3)',
+    pointerEvents: 'none',
   },
   ratingsBadgeBlur: {
     paddingHorizontal: 7,
@@ -329,12 +413,27 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#000000',
   },
+  iconButtonActive: {
+    backgroundColor: '#B6F4C6',
+  },
+  plusIcon: {
+    width: 20,
+    height: 20,
+  },
+  checkmarkIcon: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1A7A2E',
+  },
+  shareIcon: {
+    width: 22,
+    height: 22,
+  },
   glassCard: {
     borderRadius: 25,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
     overflow: 'hidden',
     marginBottom: 21,
+    position: 'relative',
   },
   glassCardBlur: {
     padding: 17,
@@ -392,9 +491,8 @@ const styles = StyleSheet.create({
     width: (SCREEN_WIDTH - 34 - 10) / 2,
     height: 102,
     borderRadius: 25,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
     overflow: 'hidden',
+    position: 'relative',
   },
   providerCardBlur: {
     flex: 1,
@@ -418,9 +516,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: -0.24,
   },
-  providerIcon: {
-    fontSize: 20,
-    color: '#FFFFFF',
+  providerLinkIcon: {
+    width: 20,
+    height: 20,
   },
   castScroll: {
     gap: 25,
@@ -451,7 +549,7 @@ const styles = StyleSheet.create({
     right: 0,
   },
   backButton: {
-    marginLeft: 32,
+    marginLeft: 17,
     marginTop: 31,
     width: 48,
     height: 48,
@@ -464,7 +562,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backButtonIcon: {
-    fontSize: 17,
-    color: '#000000',
+    width: 14,
+    height: 14,
   },
 });

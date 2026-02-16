@@ -9,14 +9,14 @@ import {
   StatusBar,
 } from 'react-native';
 import { HeaderTitle, FilterTabs, MovieCard, SearchButton } from '../components/home';
+import type { LibraryMode } from '../components/home';
 import { ProfileModal } from '../components/ProfileModal';
 import { SearchSheet } from '../components/SearchSheet';
 import { MovieDetailScreen } from './MovieDetailScreen';
 import { useFilteredLibrary } from '../hooks/useFilteredLibrary';
 import { SPACING, TYPOGRAPHY, COLORS } from '../utils/constants';
 import { LibraryItem, FilterTab } from '../utils/types';
-import { WatchStatus } from '../types/models';
-import type { LibraryMode } from '../components/home/HeaderTitle';
+import { WatchStatus, Movie } from '../types/models';
 
 // Mock data for development - will be replaced with Supabase
 const MOCK_ITEMS: LibraryItem[] = [
@@ -87,7 +87,7 @@ export function HomeScreen({ onAvatarPress }: HomeScreenProps) {
   const [library, setLibrary] = useState<LibraryItem[]>(MOCK_ITEMS);
   const [selectedMovie, setSelectedMovie] = useState<LibraryItem | null>(null);
 
-  const handleAddMovie = (movieId: string, movieData?: Partial<LibraryItem>) => {
+  const handleAddMovie = (movieId: string, movieData?: Partial<Movie>) => {
     // Check if already in library
     if (library.find((item) => item.id === movieId)) {
       // Remove from library
@@ -114,7 +114,15 @@ export function HomeScreen({ onAvatarPress }: HomeScreenProps) {
   const filtered = useFilteredLibrary(library, filter, mode);
 
   if (selectedMovie) {
-    return <MovieDetailScreen item={selectedMovie} onBack={() => setSelectedMovie(null)} />;
+    const isInLibrary = library.some((item) => item.id === selectedMovie.id);
+    return (
+      <MovieDetailScreen
+        item={selectedMovie}
+        onBack={() => setSelectedMovie(null)}
+        isInLibrary={isInLibrary}
+        onToggleLibrary={() => handleAddMovie(selectedMovie.id)}
+      />
+    );
   }
 
   return (
