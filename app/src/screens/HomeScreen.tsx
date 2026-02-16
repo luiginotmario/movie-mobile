@@ -11,6 +11,7 @@ import {
 import { HeaderTitle, FilterTabs, MovieCard, SearchButton } from '../components/home';
 import { ProfileModal } from '../components/ProfileModal';
 import { SearchSheet } from '../components/SearchSheet';
+import { MovieDetailScreen } from './MovieDetailScreen';
 import { useFilteredLibrary } from '../hooks/useFilteredLibrary';
 import { SPACING, TYPOGRAPHY, COLORS } from '../utils/constants';
 import { LibraryItem, FilterTab } from '../utils/types';
@@ -84,6 +85,7 @@ export function HomeScreen({ onAvatarPress }: HomeScreenProps) {
   const [showProfile, setShowProfile] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [library, setLibrary] = useState<LibraryItem[]>(MOCK_ITEMS);
+  const [selectedMovie, setSelectedMovie] = useState<LibraryItem | null>(null);
 
   const handleAddMovie = (movieId: string, movieData?: Partial<LibraryItem>) => {
     // Check if already in library
@@ -110,6 +112,10 @@ export function HomeScreen({ onAvatarPress }: HomeScreenProps) {
   };
 
   const filtered = useFilteredLibrary(library, filter, mode);
+
+  if (selectedMovie) {
+    return <MovieDetailScreen item={selectedMovie} onBack={() => setSelectedMovie(null)} />;
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -145,7 +151,9 @@ export function HomeScreen({ onAvatarPress }: HomeScreenProps) {
             columnWrapperStyle={styles.row}
             contentContainerStyle={styles.grid}
             showsVerticalScrollIndicator={false}
-            renderItem={({ item }) => <MovieCard item={item} />}
+            renderItem={({ item }) => (
+              <MovieCard item={item} onPress={() => setSelectedMovie(item)} />
+            )}
           />
         )}
 
