@@ -15,11 +15,14 @@ import {
 class APIService {
   private static instance: APIService;
   private tmdbAPIKey: string;
+  private omdbAPIKey: string;
   private tmdbBaseURL = 'https://api.themoviedb.org/3';
+  private omdbBaseURL = 'http://www.omdbapi.com';
   private imageBaseURL = 'https://image.tmdb.org/t/p';
 
   private constructor() {
     this.tmdbAPIKey = Config.tmdbAPIKey;
+    this.omdbAPIKey = Config.omdbAPIKey;
   }
 
   static getInstance(): APIService {
@@ -208,6 +211,96 @@ class APIService {
       return `https://www.youtube.com/watch?v=${video.key}`;
     }
     return null;
+  }
+
+  /**
+   * Get Rotten Tomatoes score from OMDB API using IMDB ID
+   */
+  async getRottenTomatoesScore(imdbId: string): Promise<number | undefined> {
+    try {
+      const url = `${this.omdbBaseURL}/?apikey=${this.omdbAPIKey}&i=${imdbId}`;
+      const response = await axios.get(url);
+      
+      if (response.data.Response === 'True' && response.data.Ratings) {
+        const rtRating = response.data.Ratings.find(
+          (r: any) => r.Source === 'Rotten Tomatoes'
+        );
+        
+        if (rtRating && rtRating.Value) {
+          // Extract percentage (e.g., "73%" -> 73)
+          return parseInt(rtRating.Value.replace('%', ''), 10);
+        }
+      }
+      
+      return undefined;
+    } catch (error) {
+      console.error('Failed to get RT score:', error);
+      return undefined;
+    }
+  }
+
+  /**
+   * Get watch providers for a movie
+   */
+  async getWatchProviders(movieId: string, region: string = 'US'): Promise<any[]> {
+    try {
+      const url = `${this.tmdbBaseURL}/movie/${movieId}/watch/providers?api_key=${this.tmdbAPIKey}`;
+      const response = await axios.get(url);
+      
+      const regionData = response.data.results[region];
+      if (!regionData) return [];
+      
+      // Return flatrate (streaming) providers
+      return (regionData.flatrate || []).map((provider: any) => ({
+        id: provider.provider_id,
+        name: provider.provider_name,
+        logo: `${this.imageBaseURL}/original${provider.logo_path}`,
+      }));
+    } catch (error) {
+      console.error('Failed to get watch providers:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get full movie details with RT score
+   */
+  async getMovieDetailsWithRT(movieId: string): Promise<Movie> {
+    try {
+      const url = `${this.tmdbBaseURL}/movie/${movieId}?api_key=${this.tmdbAPIKey}&append_to_response=credits,videos,external_ids`;
+
+      const response = await axios.get<any>(url);
+      const details = response.data;
+
+      // Get RT score if IMDB ID is available
+      let rottenTomatoesScore: number | undefined;
+      if (details.external_ids?.imdb_id) {
+        rottenTomatoesScore = await this.getRottenTomatoesScore(details.external_ids.imdb_id);
+      }
+
+      return {
+        id: String(details.id),
+        title: details.title,
+        posterURL: details.poster_path
+          ? `${this.imageBaseURL}/w500${details.poster_path}`
+          : undefined,
+        backdropURL: details.backdrop_path
+          ? `${this.imageBaseURL}/w1280${details.backdrop_path}`
+          : undefined,
+        overview: details.overview,
+        releaseDate: details.release_date,
+        rating: details.vote_average,
+        rottenTomatoesScore,
+        genres: details.genres.map((g: any) => g.name),
+        runtime: details.runtime,
+        director: details.credits?.crew.find((c: any) => c.job === 'Director')?.name,
+        cast: details.credits?.cast.slice(0, 10).map((c: any) => c.name) || [],
+        watchStatus: WatchStatus.WatchLater,
+        dateAdded: new Date(),
+      };
+    } catch (error) {
+      throw new APIError('Failed to get movie details with RT score');
+    }
   }
 }
 

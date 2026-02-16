@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -13,14 +13,19 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
 import { SPACING } from '../utils/constants';
+import { AvatarPicker, AVATAR_OPTIONS } from './AvatarPicker';
+import type { AvatarOption } from './AvatarPicker';
 
 interface ProfileModalProps {
   visible: boolean;
   onClose: () => void;
+  selectedAvatar: AvatarOption;
+  onAvatarChange: (avatar: AvatarOption) => void;
 }
 
-export function ProfileModal({ visible, onClose }: ProfileModalProps) {
+export function ProfileModal({ visible, onClose, selectedAvatar, onAvatarChange }: ProfileModalProps) {
   const { currentUserId, isGuestMode, signOut } = useAuth();
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -47,16 +52,15 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
       <Pressable style={styles.overlay} onPress={onClose}>
         <Pressable style={styles.modal} onPress={(e) => e.stopPropagation()}>
           {/* Avatar */}
-          <LinearGradient
-            colors={['#51A2FF', '#AD46FF']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.avatar}
-          >
-            <Text style={styles.avatarText}>
-              {isGuestMode ? 'U' : currentUserId?.charAt(0).toUpperCase() ?? 'U'}
-            </Text>
-          </LinearGradient>
+          <TouchableOpacity onPress={() => setShowAvatarPicker(true)}>
+            <LinearGradient
+              colors={selectedAvatar.colors}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.avatar}
+            />
+            <Text style={styles.changeAvatarText}>Tap to change</Text>
+          </TouchableOpacity>
 
           {/* User Info */}
           <Text style={styles.userName}>
@@ -91,6 +95,13 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
           >
             <Text style={styles.signOutText}>Sign out</Text>
           </TouchableOpacity>
+
+          <AvatarPicker
+            visible={showAvatarPicker}
+            onClose={() => setShowAvatarPicker(false)}
+            onSelect={onAvatarChange}
+            currentAvatar={selectedAvatar}
+          />
         </Pressable>
       </Pressable>
     </Modal>
@@ -128,17 +139,14 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginBottom: 16,
   },
-  avatarText: {
-    fontFamily: Platform.select({ ios: 'Inter', default: 'System' }),
-    fontSize: 24,
-    fontWeight: '400',
-    color: '#FFFFFF',
-    letterSpacing: 0.0703,
-    lineHeight: 32,
+  changeAvatarText: {
+    fontFamily: Platform.select({ ios: 'SF Pro Text', default: 'System' }),
+    fontSize: 12,
+    color: 'rgba(0, 0, 0, 0.5)',
+    textAlign: 'center',
+    marginTop: 8,
   },
   userName: {
     fontFamily: Platform.select({ ios: 'Inter', default: 'System' }),

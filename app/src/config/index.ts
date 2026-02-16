@@ -1,5 +1,6 @@
 export const Config = {
   tmdbAPIKey: process.env.EXPO_PUBLIC_TMDB_API_KEY || '',
+  omdbAPIKey: process.env.EXPO_PUBLIC_OMDB_API_KEY || 'e65ac4f7',
   supabaseURL: process.env.EXPO_PUBLIC_SUPABASE_URL || '',
   supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
   googleiOSClientID: '1092222459837-7do7dilb66ic4hsh8j03q7trjejcpkjh.apps.googleusercontent.com',

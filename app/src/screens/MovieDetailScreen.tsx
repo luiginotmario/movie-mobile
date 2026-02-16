@@ -17,12 +17,7 @@ import { LibraryItem } from '../utils/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-interface MovieDetailScreenProps {
-  item: LibraryItem;
-  onBack: () => void;
-  onToggleLibrary?: () => void;
-  isInLibrary?: boolean;
-}
+type MovieDetailScreenProps = NativeStackScreenProps<RootStackParamList, 'MovieDetail'>;
 
 // Mock streaming providers
 const STREAMING_PROVIDERS = [

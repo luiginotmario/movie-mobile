@@ -7,7 +7,9 @@ import {
   SafeAreaView,
   TouchableOpacity,
   StatusBar,
+  Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { HeaderTitle, FilterTabs, MovieCard, SearchButton } from '../components/home';
 import type { LibraryMode } from '../components/home';
 import { ProfileModal } from '../components/ProfileModal';
@@ -17,6 +19,8 @@ import { useFilteredLibrary } from '../hooks/useFilteredLibrary';
 import { SPACING, TYPOGRAPHY, COLORS } from '../utils/constants';
 import { LibraryItem, FilterTab } from '../utils/types';
 import { WatchStatus, Movie } from '../types/models';
+import { AVATAR_OPTIONS } from '../components/AvatarPicker';
+import type { AvatarOption } from '../components/AvatarPicker';
 
 // Mock data for development - will be replaced with Supabase
 const MOCK_ITEMS: LibraryItem[] = [
@@ -86,6 +90,7 @@ export function HomeScreen({ onAvatarPress }: HomeScreenProps) {
   const [showSearch, setShowSearch] = useState(false);
   const [library, setLibrary] = useState<LibraryItem[]>(MOCK_ITEMS);
   const [selectedMovie, setSelectedMovie] = useState<LibraryItem | null>(null);
+  const [selectedAvatar, setSelectedAvatar] = useState<AvatarOption>(AVATAR_OPTIONS[0]);
 
   const handleAddMovie = (movieId: string, movieData?: Partial<Movie>) => {
     // Check if already in library
@@ -133,11 +138,17 @@ export function HomeScreen({ onAvatarPress }: HomeScreenProps) {
         <View style={styles.header}>
           <HeaderTitle mode={mode} onModeChange={setMode} />
           <TouchableOpacity
-            style={styles.avatar}
             onPress={() => setShowProfile(true)}
             accessibilityLabel="Profile"
             accessibilityRole="button"
-          />
+          >
+            <LinearGradient
+              colors={selectedAvatar.colors}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.avatar}
+            />
+          </TouchableOpacity>
         </View>
 
         <FilterTabs active={filter} onTabChange={setFilter} />
@@ -146,10 +157,25 @@ export function HomeScreen({ onAvatarPress }: HomeScreenProps) {
 
         {filtered.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>No {mode === 'movies' ? 'movies' : 'shows'} yet</Text>
-            <Text style={styles.emptySubtext}>
-              Add from search or they'll appear when you link your social accounts
+            <View style={styles.emptyIconContainer}>
+              <Text style={styles.emptyIcon}>{mode === 'movies' ? '🎬' : '📺'}</Text>
+            </View>
+            <Text style={styles.emptyTitle}>
+              No {mode === 'movies' ? 'Movies' : 'TV Shows'} Yet
             </Text>
+            <Text style={styles.emptySubtext}>
+              Start building your collection by searching for movies and TV shows
+            </Text>
+            <TouchableOpacity
+              style={styles.emptyButton}
+              onPress={() => setShowSearch(true)}
+              accessibilityLabel={`Add your first ${mode === 'movies' ? 'movie' : 'TV show'}`}
+              accessibilityRole="button"
+            >
+              <Text style={styles.emptyButtonText}>
+                Add Your First {mode === 'movies' ? 'Movie' : 'TV Show'}
+              </Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <FlatList
@@ -165,7 +191,12 @@ export function HomeScreen({ onAvatarPress }: HomeScreenProps) {
           />
         )}
 
-        <ProfileModal visible={showProfile} onClose={() => setShowProfile(false)} />
+        <ProfileModal
+          visible={showProfile}
+          onClose={() => setShowProfile(false)}
+          selectedAvatar={selectedAvatar}
+          onAvatarChange={setSelectedAvatar}
+        />
         <SearchSheet
           visible={showSearch}
           onClose={() => setShowSearch(false)}
@@ -199,7 +230,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.avatarPlaceholder,
   },
   grid: {
     paddingBottom: SPACING.xxl,
@@ -212,17 +242,71 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: SPACING.xxl,
+    paddingHorizontal: 24,
   },
-  emptyText: {
-    fontSize: TYPOGRAPHY.headline,
-    fontWeight: '500',
-    color: COLORS.secondary,
-    marginBottom: SPACING.sm,
+  emptyIconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    ...Platform.select({
+      ios: {
+        backgroundColor: '#EFF6FF',
+      },
+      default: {
+        backgroundColor: '#EFF6FF',
+      },
+    }),
+  },
+  emptyIcon: {
+    fontSize: 48,
+  },
+  emptyTitle: {
+    fontFamily: Platform.select({ ios: 'SF Pro Text', default: 'System' }),
+    fontSize: 20,
+    fontWeight: '400',
+    color: '#0A0A0A',
+    letterSpacing: -0.45,
+    lineHeight: 28,
+    textAlign: 'center',
+    marginBottom: 8,
   },
   emptySubtext: {
-    fontSize: TYPOGRAPHY.body,
-    color: COLORS.tertiary,
+    fontFamily: Platform.select({ ios: 'SF Pro Text', default: 'System' }),
+    fontSize: 14,
+    fontWeight: '400',
+    color: 'rgba(0, 0, 0, 0.4)',
+    letterSpacing: -0.15,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 32,
+    maxWidth: 294,
+  },
+  emptyButton: {
+    backgroundColor: '#2B7FFF',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 100,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  emptyButtonText: {
+    fontFamily: Platform.select({ ios: 'SF Pro Text', default: 'System' }),
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#FFFFFF',
+    letterSpacing: -0.31,
     textAlign: 'center',
   },
 });
