@@ -87,7 +87,6 @@ export function SearchSheet({ visible, onClose, onAddItem, libraryIds = [] }: Se
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [addingItemId, setAddingItemId] = useState<string | null>(null);
   const [trendingMovies, setTrendingMovies] = useState<SearchResult[]>(TRENDING_PLACEHOLDER);
   const addedItemIds = new Set(libraryIds);
 
@@ -150,11 +149,14 @@ export function SearchSheet({ visible, onClose, onAddItem, libraryIds = [] }: Se
   };
 
   const handleAddToggle = async (item: SearchResult) => {
-    if (addingItemId === item.id) return; // Prevent double-tap
+    // Optimistic UI - update immediately
+    const updateItemState = (items: SearchResult[]) =>
+      items.map((i) => (i.id === item.id ? { ...i, isAdded: true } : i));
     
-    setAddingItemId(item.id);
+    setResults(updateItemState);
+    setTrendingMovies(updateItemState);
     
-    // Fetch full details before adding
+    // Fetch full details in background
     try {
       console.log('Fetching details for:', item.title, 'Type:', item.type);
       
@@ -213,8 +215,6 @@ export function SearchSheet({ visible, onClose, onAddItem, libraryIds = [] }: Se
         genres: [],
         cast: [],
       });
-    } finally {
-      setAddingItemId(null);
     }
   };
 
@@ -234,17 +234,12 @@ export function SearchSheet({ visible, onClose, onAddItem, libraryIds = [] }: Se
       <TouchableOpacity
         style={styles.actionButton}
         onPress={() => handleAddToggle(item)}
-        disabled={addingItemId === item.id}
-        accessibilityLabel={item.isAdded ? 'Remove from library' : 'Add to library'}
+        accessibilityLabel={item.isAdded ? 'Added to library' : 'Add to library'}
         accessibilityRole="button"
       >
-        {addingItemId === item.id ? (
-          <ActivityIndicator size="small" color="#2B7FFF" />
-        ) : (
-          <Text style={[styles.actionIcon, item.isAdded && styles.actionIconAdded]}>
-            {item.isAdded ? '✓' : '+'}
-          </Text>
-        )}
+        <Text style={[styles.actionIcon, item.isAdded && styles.actionIconAdded]}>
+          {item.isAdded ? '✓' : '+'}
+        </Text>
       </TouchableOpacity>
     </View>
   );

@@ -44,12 +44,22 @@ export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary =
       const mediaType = isTV ? 'tv' : 'movie';
       const tmdbAPIKey = 'f99c4bd4f3af30bde84b8fbe75f56aa8'; // From your env
       
+      console.log('🎬 MovieDetail - Loading details for:', item.title);
+      console.log('🎬 MovieDetail - Media Type:', mediaType, 'ID:', item.id);
+      console.log('🎬 MovieDetail - Credits URL:', `https://api.themoviedb.org/3/${mediaType}/${item.id}/credits?api_key=${tmdbAPIKey}`);
+      console.log('🎬 MovieDetail - Providers URL:', `https://api.themoviedb.org/3/${mediaType}/${item.id}/watch/providers?api_key=${tmdbAPIKey}`);
+      console.log('🎬 MovieDetail - Videos URL:', `https://api.themoviedb.org/3/${mediaType}/${item.id}/videos?api_key=${tmdbAPIKey}`);
+      
       // Fetch cast, watch providers, and videos
       const [castResponse, providersResponse, videosResponse] = await Promise.all([
         fetch(`https://api.themoviedb.org/3/${mediaType}/${item.id}/credits?api_key=${tmdbAPIKey}`).then(r => r.json()),
         fetch(`https://api.themoviedb.org/3/${mediaType}/${item.id}/watch/providers?api_key=${tmdbAPIKey}`).then(r => r.json()),
         fetch(`https://api.themoviedb.org/3/${mediaType}/${item.id}/videos?api_key=${tmdbAPIKey}`).then(r => r.json()),
       ]);
+      
+      console.log('🎬 MovieDetail - Cast count:', castResponse.cast?.length || 0);
+      console.log('🎬 MovieDetail - Providers results:', Object.keys(providersResponse.results || {}));
+      console.log('🎬 MovieDetail - Videos count:', videosResponse.results?.length || 0);
       
       // Parse cast
       const castData = castResponse.cast?.slice(0, 10).map((person: any) => ({
@@ -64,6 +74,9 @@ export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary =
       // Parse providers and deduplicate aggressively
       const regionData = providersResponse.results?.US;
       const providersData = regionData?.flatrate || [];
+      
+      console.log('🎬 MovieDetail - US Region Data:', regionData ? 'Found' : 'Not Found');
+      console.log('🎬 MovieDetail - Flatrate providers count:', providersData.length);
       
       const uniqueProviders = new Map();
       providersData.forEach((provider: any) => {

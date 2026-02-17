@@ -230,7 +230,8 @@ class APIService {
       const url = `${this.omdbBaseURL}/?apikey=${this.omdbAPIKey}&i=${imdbId}`;
       console.log('🍅 Fetching RT score for IMDB ID:', imdbId);
       const data = await this.fetchJSON<any>(url);
-      console.log('🍅 OMDB Response:', JSON.stringify(data).substring(0, 200));
+      console.log('🍅 OMDB Full Ratings Array:', JSON.stringify(data.Ratings));
+      console.log('🍅 OMDB Response Success:', data.Response === 'True');
       
       if (data.Response === 'True' && data.Ratings) {
         const rtRating = data.Ratings.find(
@@ -245,10 +246,10 @@ class APIService {
         }
       }
       
-      console.log('🍅 No RT score found');
+      console.log('🍅 No RT score found in ratings array');
       return undefined;
     } catch (error) {
-      console.error('Failed to get RT score:', error);
+      console.error('🍅 Failed to get RT score:', error);
       return undefined;
     }
   }

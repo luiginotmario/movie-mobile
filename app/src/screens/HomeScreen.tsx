@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   grid: {
-    paddingBottom: SPACING.xxl,
+    paddingBottom: 0,
   },
   row: {
     justifyContent: 'space-between',
