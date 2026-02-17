@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,11 @@ import {
   FlatList,
   Image,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
+import { APIService } from '../services/APIService';
+
+const apiService = APIService.getInstance();
 
 interface SearchResult {
   id: string;
@@ -27,8 +31,8 @@ interface SearchSheetProps {
   libraryIds?: string[];
 }
 
-// Mock data for now
-const MOCK_RESULTS: SearchResult[] = [
+// Trending movies for initial display
+const TRENDING_PLACEHOLDER: SearchResult[] = [
   {
     id: '1',
     title: 'Interstellar',
@@ -81,41 +85,140 @@ const MOCK_RESULTS: SearchResult[] = [
 
 export function SearchSheet({ visible, onClose, onAddItem, libraryIds = [] }: SearchSheetProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [addingItemId, setAddingItemId] = useState<string | null>(null);
+  const [trendingMovies, setTrendingMovies] = useState<SearchResult[]>(TRENDING_PLACEHOLDER);
   const addedItemIds = new Set(libraryIds);
+
+  // Load trending movies on mount
+  useEffect(() => {
+    if (visible) {
+      loadTrendingMovies();
+    }
+  }, [visible]);
+
+  // Search when query changes
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchQuery.trim()) {
+        performSearch(searchQuery);
+      } else {
+        setResults([]);
+      }
+    }, 300); // Debounce search
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  const loadTrendingMovies = async () => {
+    try {
+      const trending = await apiService.getTrendingMovies('week');
+      const formattedTrending = trending.slice(0, 6).map((movie) => ({
+        id: movie.id,
+        title: movie.title,
+        year: movie.releaseDate ? movie.releaseDate.split('-')[0] : 'N/A',
+        type: 'Movie' as const,
+        posterURL: movie.posterURL || 'https://via.placeholder.com/500x750?text=No+Poster',
+        isAdded: addedItemIds.has(movie.id),
+      }));
+      setTrendingMovies(formattedTrending);
+    } catch (error) {
+      console.error('Failed to load trending movies:', error);
+    }
+  };
+
+  const performSearch = async (query: string) => {
+    setIsLoading(true);
+    try {
+      const searchResults = await apiService.searchMulti(query);
+      const formattedResults = searchResults.map((item) => ({
+        ...item,
+        isAdded: addedItemIds.has(item.id),
+      }));
+      setResults(formattedResults);
+    } catch (error) {
+      console.error('Search failed:', error);
+      setResults([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
 
-  const handleAddToggle = (item: SearchResult) => {
-    onAddItem?.(item.id, {
-      title: item.title,
-      posterURL: item.posterURL,
-      releaseDate: item.year,
-      overview: '',
-      genres: [],
-      cast: [],
-    });
-  };
-
-  // Get filtered results with current added state
-  const getFilteredResults = (): SearchResult[] => {
-    let filtered = MOCK_RESULTS;
+  const handleAddToggle = async (item: SearchResult) => {
+    if (addingItemId === item.id) return; // Prevent double-tap
     
-    if (searchQuery.trim()) {
-      filtered = MOCK_RESULTS.filter((item) =>
-        item.title.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+    setAddingItemId(item.id);
+    
+    // Fetch full details before adding
+    try {
+      console.log('Fetching details for:', item.title, 'Type:', item.type);
+      
+      if (item.type === 'Movie') {
+        const details = await apiService.getMovieDetailsWithRT(item.id);
+        console.log('✅ SearchSheet - Movie details fetched:', {
+          title: details.title,
+          rating: details.rating,
+          rtScore: details.rottenTomatoesScore,
+        });
+        
+        onAddItem?.(item.id, {
+          title: details.title,
+          posterURL: details.posterURL,
+          backdropURL: details.backdropURL,
+          releaseDate: details.releaseDate,
+          overview: details.overview,
+          genres: details.genres,
+          cast: details.cast,
+          rating: details.rating,
+          rottenTomatoesScore: details.rottenTomatoesScore,
+          runtime: details.runtime,
+          director: details.director,
+        });
+      } else {
+        // TV Series
+        const details = await apiService.getTVSeriesDetails(item.id);
+        console.log('✅ SearchSheet - TV details fetched:', {
+          title: details.title,
+          rating: details.rating,
+          rtScore: details.rottenTomatoesScore,
+        });
+        
+        onAddItem?.(item.id, {
+          title: details.title,
+          posterURL: details.posterURL,
+          backdropURL: details.backdropURL,
+          firstAirDate: details.firstAirDate,
+          overview: details.overview,
+          genres: details.genres,
+          cast: details.cast,
+          rating: details.rating,
+          rottenTomatoesScore: details.rottenTomatoesScore,
+          numberOfSeasons: details.numberOfSeasons,
+          numberOfEpisodes: details.numberOfEpisodes,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch details:', error);
+      // Fallback to basic info
+      onAddItem?.(item.id, {
+        title: item.title,
+        posterURL: item.posterURL,
+        releaseDate: item.year,
+        overview: '',
+        genres: [],
+        cast: [],
+      });
+    } finally {
+      setAddingItemId(null);
     }
-
-    // Apply added state
-    return filtered.map((item) => ({
-      ...item,
-      isAdded: addedItemIds.has(item.id),
-    }));
   };
 
-  const results = getFilteredResults();
+  const displayResults = searchQuery.trim() ? results : trendingMovies;
 
   const renderItem = ({ item }: { item: SearchResult }) => (
     <View style={styles.resultItem}>
@@ -131,12 +234,17 @@ export function SearchSheet({ visible, onClose, onAddItem, libraryIds = [] }: Se
       <TouchableOpacity
         style={styles.actionButton}
         onPress={() => handleAddToggle(item)}
+        disabled={addingItemId === item.id}
         accessibilityLabel={item.isAdded ? 'Remove from library' : 'Add to library'}
         accessibilityRole="button"
       >
-        <Text style={[styles.actionIcon, item.isAdded && styles.actionIconAdded]}>
-          {item.isAdded ? '✓' : '+'}
-        </Text>
+        {addingItemId === item.id ? (
+          <ActivityIndicator size="small" color="#2B7FFF" />
+        ) : (
+          <Text style={[styles.actionIcon, item.isAdded && styles.actionIconAdded]}>
+            {item.isAdded ? '✓' : '+'}
+          </Text>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -184,15 +292,37 @@ export function SearchSheet({ visible, onClose, onAddItem, libraryIds = [] }: Se
           </View>
         </View>
 
+        {/* Section Title */}
+        {!searchQuery.trim() && (
+          <Text style={styles.sectionTitle}>Trending This Week</Text>
+        )}
+
+        {/* Loading Indicator */}
+        {isLoading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#2B7FFF" />
+          </View>
+        )}
+
         {/* Results List */}
-        <FlatList
-          data={results}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          ItemSeparatorComponent={() => <View style={{ height: 4 }} />}
-        />
+        {!isLoading && (
+          <FlatList
+            data={displayResults}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ItemSeparatorComponent={() => <View style={{ height: 4 }} />}
+          />
+        )}
+
+        {/* No Results */}
+        {!isLoading && searchQuery.trim() && displayResults.length === 0 && (
+          <View style={styles.noResults}>
+            <Text style={styles.noResultsText}>No results found</Text>
+            <Text style={styles.noResultsSubtext}>Try a different search term</Text>
+          </View>
+        )}
       </View>
     </Modal>
   );
@@ -269,6 +399,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#000000',
     letterSpacing: -0.31,
+  },
+  sectionTitle: {
+    fontFamily: Platform.select({ ios: 'SF Pro Text', default: 'System' }),
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#000000',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  noResults: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  noResultsText: {
+    fontFamily: Platform.select({ ios: 'SF Pro Text', default: 'System' }),
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000000',
+    marginBottom: 8,
+  },
+  noResultsSubtext: {
+    fontFamily: Platform.select({ ios: 'SF Pro Text', default: 'System' }),
+    fontSize: 14,
+    fontWeight: '400',
+    color: 'rgba(0, 0, 0, 0.5)',
   },
   listContent: {
     paddingHorizontal: 12,

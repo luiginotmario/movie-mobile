@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Platform, Dimensions } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Platform, Dimensions, ActionSheetIOS, Alert } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { LibraryItem } from '../../utils/types';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -12,9 +13,10 @@ const ICON_SIZE = 20;
 interface MovieCardProps {
   item: LibraryItem;
   onPress?: () => void;
+  onDelete?: () => void;
 }
 
-export function MovieCard({ item, onPress }: MovieCardProps) {
+export function MovieCard({ item, onPress, onDelete }: MovieCardProps) {
   const title = item.title;
   const posterURL = item.posterURL;
   const rating = 'rating' in item ? item.rating : undefined;
@@ -22,10 +24,44 @@ export function MovieCard({ item, onPress }: MovieCardProps) {
 
   const hasRating = rating != null || rottenTomatoesScore != null;
 
+  const handleLongPress = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', 'Remove from Library'],
+          destructiveButtonIndex: 1,
+          cancelButtonIndex: 0,
+          title: item.title,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            onDelete?.();
+          }
+        }
+      );
+    } else {
+      // Android fallback
+      Alert.alert(
+        item.title,
+        'Remove this movie from your library?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Remove', style: 'destructive', onPress: onDelete },
+        ],
+        { cancelable: true }
+      );
+    }
+  };
+
   return (
     <TouchableOpacity
       style={styles.container}
       onPress={onPress}
+      onLongPress={handleLongPress}
       activeOpacity={0.8}
       accessibilityLabel={title}
       accessibilityRole="button"

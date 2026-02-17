@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,14 @@ import {
   Platform,
   Dimensions,
   Share,
+  ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { LibraryItem } from '../utils/types';
+import APIService from '../services/APIService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -24,23 +27,90 @@ interface MovieDetailScreenProps {
   isInLibrary?: boolean;
 }
 
-// Mock streaming providers
-const STREAMING_PROVIDERS = [
-  { id: '1', name: 'Netflix', logo: 'https://via.placeholder.com/42' },
-  { id: '2', name: 'Prime Video', logo: 'https://via.placeholder.com/42' },
-  { id: '3', name: 'Disney+', logo: 'https://via.placeholder.com/42' },
-  { id: '4', name: 'HBO Max', logo: 'https://via.placeholder.com/42' },
-];
-
-// Mock cast
-const MOCK_CAST = [
-  { id: '1', name: 'Cillian Murphy', photo: 'https://via.placeholder.com/80' },
-  { id: '2', name: 'Emily Blunt', photo: 'https://via.placeholder.com/80' },
-  { id: '3', name: 'Robert Downey Jr.', photo: 'https://via.placeholder.com/80' },
-  { id: '4', name: 'Matt Damon', photo: 'https://via.placeholder.com/80' },
-];
-
 export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary = false }: MovieDetailScreenProps) {
+  const [cast, setCast] = useState<Array<{ id: string; name: string; photo: string }>>([]);
+  const [providers, setProviders] = useState<Array<{ id: number; name: string; logo: string }>>([]);
+  const [trailerURL, setTrailerURL] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadMovieDetails();
+  }, [item.id]);
+
+  const loadMovieDetails = async () => {
+    setIsLoading(true);
+    try {
+      const isTV = 'numberOfSeasons' in item;
+      const mediaType = isTV ? 'tv' : 'movie';
+      const tmdbAPIKey = 'f99c4bd4f3af30bde84b8fbe75f56aa8'; // From your env
+      
+      // Fetch cast, watch providers, and videos
+      const [castResponse, providersResponse, videosResponse] = await Promise.all([
+        fetch(`https://api.themoviedb.org/3/${mediaType}/${item.id}/credits?api_key=${tmdbAPIKey}`).then(r => r.json()),
+        fetch(`https://api.themoviedb.org/3/${mediaType}/${item.id}/watch/providers?api_key=${tmdbAPIKey}`).then(r => r.json()),
+        fetch(`https://api.themoviedb.org/3/${mediaType}/${item.id}/videos?api_key=${tmdbAPIKey}`).then(r => r.json()),
+      ]);
+      
+      // Parse cast
+      const castData = castResponse.cast?.slice(0, 10).map((person: any) => ({
+        id: String(person.id),
+        name: person.name,
+        photo: person.profile_path
+          ? `https://image.tmdb.org/t/p/w185${person.profile_path}`
+          : 'https://via.placeholder.com/185x278?text=No+Photo',
+      })) || [];
+      setCast(castData);
+      
+      // Parse providers and deduplicate aggressively
+      const regionData = providersResponse.results?.US;
+      const providersData = regionData?.flatrate || [];
+      
+      const uniqueProviders = new Map();
+      providersData.forEach((provider: any) => {
+        // Extract base name - remove everything after space that's not part of the main brand
+        let baseName = provider.provider_name;
+        
+        // Remove common channel suffixes
+        baseName = baseName
+          .replace(/\s+(Amazon|Roku|Apple TV|Prime Video)\s+Channel$/i, '')
+          .replace(/\s+via\s+.+$/i, '')
+          .replace(/\s+Premium\s+Channel$/i, '')
+          .replace(/\s+Channel$/i, '')
+          .trim();
+        
+        // For Paramount specifically, extract just "Paramount+"
+        if (baseName.toLowerCase().includes('paramount')) {
+          baseName = 'Paramount+';
+        }
+        
+        console.log('Provider mapping:', provider.provider_name, '->', baseName);
+        
+        if (!uniqueProviders.has(baseName)) {
+          uniqueProviders.set(baseName, {
+            id: provider.provider_id,
+            name: baseName,
+            logo: `https://image.tmdb.org/t/p/original${provider.logo_path}`,
+          });
+        }
+      });
+      
+      setProviders(Array.from(uniqueProviders.values()));
+      
+      // Parse trailer - find the first YouTube trailer (store just the key)
+      const trailer = videosResponse.results?.find(
+        (video: any) => video.site === 'YouTube' && video.type === 'Trailer'
+      );
+      if (trailer) {
+        setTrailerURL(trailer.key); // Just the YouTube video ID
+        console.log('🎬 Trailer found:', trailer.key);
+      }
+    } catch (error) {
+      console.error('Failed to load details:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const getYear = () => {
     const releaseDate = 'releaseDate' in item ? item.releaseDate : 'firstAirDate' in item ? item.firstAirDate : null;
     if (!releaseDate || typeof releaseDate !== 'string') return 'N/A';
@@ -55,6 +125,10 @@ export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary =
 
   const rottenTomatoesScore = 'rottenTomatoesScore' in item ? item.rottenTomatoesScore : undefined;
   const rating = 'rating' in item ? item.rating : undefined;
+  
+  console.log('🎬 MovieDetail - Item:', item.title);
+  console.log('🎬 MovieDetail - RT Score:', rottenTomatoesScore);
+  console.log('🎬 MovieDetail - TMDB Rating:', rating);
 
   const handleShare = async () => {
     try {
@@ -70,6 +144,25 @@ export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary =
       await Share.share(shareOptions);
     } catch (error) {
       console.error('Error sharing:', error);
+    }
+  };
+
+  const handleTrailer = async () => {
+    if (!trailerURL) {
+      console.log('No trailer available');
+      return;
+    }
+    
+    const youtubeURL = `https://www.youtube.com/watch?v=${trailerURL}`;
+    try {
+      const supported = await Linking.canOpenURL(youtubeURL);
+      if (supported) {
+        await Linking.openURL(youtubeURL);
+      } else {
+        console.error("Can't open YouTube URL");
+      }
+    } catch (error) {
+      console.error('Error opening trailer:', error);
     }
   };
 
@@ -91,37 +184,39 @@ export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary =
       />
 
       {/* Ratings Badge - Fixed */}
-      <SafeAreaView style={styles.ratingsBadgeContainer} edges={['top']}>
-        <View style={styles.ratingsBadge}>
-          <View style={styles.glassBorder} />
-          <View style={styles.glassBackground} />
-          <BlurView intensity={95} tint="dark" style={styles.ratingsBadgeBlur}>
-            <View style={styles.ratingsContent}>
-              {rottenTomatoesScore && (
-                <>
-                  <Image
-                    source={require('../../assets/Tomatos.png')}
-                    style={styles.ratingIcon}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.ratingText}>{rottenTomatoesScore}%</Text>
-                  <Text style={styles.ratingSeparator}>·</Text>
-                </>
-              )}
-              {rating && (
-                <>
-                  <Image
-                    source={require('../../assets/tmdb.png')}
-                    style={styles.ratingIcon}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
-                </>
-              )}
-            </View>
-          </BlurView>
-        </View>
-      </SafeAreaView>
+      {(rottenTomatoesScore || rating) && (
+        <SafeAreaView style={styles.ratingsBadgeContainer} edges={['top']}>
+          <View style={styles.ratingsBadge}>
+            <View style={styles.glassBorder} />
+            <View style={styles.glassBackground} />
+            <BlurView intensity={95} tint="dark" style={styles.ratingsBadgeBlur}>
+              <View style={styles.ratingsContent}>
+                {rottenTomatoesScore != null && (
+                  <>
+                    <Image
+                      source={require('../../assets/Tomatos.png')}
+                      style={styles.ratingIcon}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.ratingText}>{rottenTomatoesScore}%</Text>
+                    {rating != null && <Text style={styles.ratingSeparator}>·</Text>}
+                  </>
+                )}
+                {rating != null && (
+                  <>
+                    <Image
+                      source={require('../../assets/tmdb.png')}
+                      style={styles.ratingIcon}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
+                  </>
+                )}
+              </View>
+            </BlurView>
+          </View>
+        </SafeAreaView>
+      )}
 
       <ScrollView
         style={styles.scrollView}
@@ -141,8 +236,14 @@ export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary =
 
           {/* Buttons Row */}
           <View style={styles.buttonsRow}>
-            <TouchableOpacity style={styles.trailerButton}>
-              <Text style={styles.trailerButtonText}>▶ Trailer</Text>
+            <TouchableOpacity 
+              style={[styles.trailerButton, !trailerURL && styles.trailerButtonDisabled]} 
+              onPress={handleTrailer}
+              disabled={!trailerURL}
+            >
+              <Text style={[styles.trailerButtonText, !trailerURL && styles.trailerButtonTextDisabled]}>
+                ▶ Trailer
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.iconButton, isInLibrary && styles.iconButtonActive]}
@@ -168,30 +269,34 @@ export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary =
           </View>
 
           {/* Description */}
-          <View style={styles.glassCard}>
-            <View style={styles.glassBorder} />
-            <View style={styles.glassBackground} />
-            <BlurView intensity={95} tint="dark" style={styles.glassCardBlur}>
-              <Text style={styles.sectionTitle}>Description</Text>
-              <Text style={styles.descriptionText}>
-                {item.overview ||
-                  'Narrated by Simon Smith, this documentary showcases nature\'s heroes from different places of Earth. Spotlighting amazing creatures and.'}
-              </Text>
-            </BlurView>
-          </View>
+          {item.overview && (
+            <View style={styles.glassCard}>
+              <View style={styles.glassBorder} />
+              <View style={styles.glassBackground} />
+              <BlurView intensity={95} tint="dark" style={styles.glassCardBlur}>
+                <Text style={styles.sectionTitle}>Description</Text>
+                <Text style={styles.descriptionText}>{item.overview}</Text>
+              </BlurView>
+            </View>
+          )}
 
           {/* Where to Watch */}
-          <View style={styles.whereSection}>
-            <View style={styles.whereSectionHeader}>
-              <Text style={styles.sectionTitle}>Where to watch</Text>
-              <View style={styles.countryBadge}>
-                <View style={styles.countryDot} />
-                <Text style={styles.countryText}>US</Text>
-              </View>
+          {isLoading ? (
+            <View style={styles.loadingSection}>
+              <ActivityIndicator size="small" color="#FFFFFF" />
             </View>
+          ) : providers.length > 0 ? (
+            <View style={styles.whereSection}>
+              <View style={styles.whereSectionHeader}>
+                <Text style={styles.sectionTitle}>Where to watch</Text>
+                <View style={styles.countryBadge}>
+                  <View style={styles.countryDot} />
+                  <Text style={styles.countryText}>US</Text>
+                </View>
+              </View>
 
-            <View style={styles.providersGrid}>
-              {STREAMING_PROVIDERS.map((provider) => (
+              <View style={styles.providersGrid}>
+                {providers.map((provider) => (
                 <View key={provider.id} style={styles.providerCard}>
                   <View style={styles.glassBorder} />
                   <View style={styles.glassBackground} />
@@ -210,35 +315,42 @@ export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary =
                       />
                     </View>
                   </BlurView>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {/* Cast */}
-          <View style={styles.glassCard}>
-            <View style={styles.glassBorder} />
-            <View style={styles.glassBackground} />
-            <BlurView intensity={95} tint="dark" style={styles.glassCardBlur}>
-              <Text style={styles.sectionTitle}>Cast</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.castScroll}
-              >
-                {MOCK_CAST.map((actor) => (
-                  <View key={actor.id} style={styles.castItem}>
-                    <Image
-                      source={{ uri: actor.photo }}
-                      style={styles.castPhoto}
-                      resizeMode="cover"
-                    />
-                    <Text style={styles.castName}>{actor.name}</Text>
                   </View>
                 ))}
-              </ScrollView>
-            </BlurView>
-          </View>
+              </View>
+            </View>
+          ) : null}
+
+          {/* Cast */}
+          {isLoading ? (
+            <View style={styles.loadingSection}>
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            </View>
+          ) : cast.length > 0 ? (
+            <View style={styles.glassCard}>
+              <View style={styles.glassBorder} />
+              <View style={styles.glassBackground} />
+              <BlurView intensity={95} tint="dark" style={styles.glassCardBlur}>
+                <Text style={styles.sectionTitle}>Cast</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.castScroll}
+                >
+                  {cast.map((actor) => (
+                    <View key={actor.id} style={styles.castItem}>
+                      <Image
+                        source={{ uri: actor.photo }}
+                        style={styles.castPhoto}
+                        resizeMode="cover"
+                      />
+                      <Text style={styles.castName}>{actor.name}</Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              </BlurView>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -324,6 +436,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(128, 128, 128, 0.3)',
     pointerEvents: 'none',
   },
+  loadingSection: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   ratingsBadgeBlur: {
     paddingHorizontal: 7,
     paddingVertical: 6,
@@ -401,6 +518,12 @@ const styles = StyleSheet.create({
     color: '#0A0A0A',
     letterSpacing: -0.31,
   },
+  trailerButtonDisabled: {
+    backgroundColor: '#FFFFFF40',
+  },
+  trailerButtonTextDisabled: {
+    color: '#FFFFFF60',
+  },
   iconButton: {
     width: 68,
     height: 52,
@@ -462,7 +585,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 22,
+    marginBottom: 14,
   },
   countryBadge: {
     flexDirection: 'row',
@@ -488,7 +611,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   providerCard: {
-    width: (SCREEN_WIDTH - 34 - 10) / 2,
+    minWidth: (SCREEN_WIDTH - 34 - 10) / 2,
+    maxWidth: (SCREEN_WIDTH - 34 - 10) / 2,
+    flex: 1,
     height: 102,
     borderRadius: 25,
     overflow: 'hidden',
@@ -496,13 +621,15 @@ const styles = StyleSheet.create({
   },
   providerCardBlur: {
     flex: 1,
-    padding: 7,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
   providerLogo: {
     width: 42,
     height: 42,
     borderRadius: 21,
-    marginBottom: 9,
+    marginBottom: 8,
   },
   providerInfo: {
     flexDirection: 'row',

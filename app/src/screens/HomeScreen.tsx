@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,9 @@ import {
   TouchableOpacity,
   StatusBar,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { HeaderTitle, FilterTabs, MovieCard, SearchButton } from '../components/home';
 import type { LibraryMode } from '../components/home';
@@ -16,99 +18,144 @@ import { ProfileModal } from '../components/ProfileModal';
 import { SearchSheet } from '../components/SearchSheet';
 import { MovieDetailScreen } from './MovieDetailScreen';
 import { useFilteredLibrary } from '../hooks/useFilteredLibrary';
+import { useAuth } from '../contexts/AuthContext';
+import { libraryService } from '../services/LibraryService';
 import { SPACING, COLORS } from '../utils/constants';
 import { LibraryItem, FilterTab } from '../utils/types';
 import { WatchStatus, Movie } from '../types/models';
 import { AVATAR_OPTIONS } from '../components/AvatarPicker';
 import type { AvatarOption } from '../components/AvatarPicker';
 
-// Mock data for development - will be replaced with Supabase
-const MOCK_ITEMS: LibraryItem[] = [
-  {
-    id: '1',
-    title: 'Inception',
-    posterURL: 'https://image.tmdb.org/t/p/w500/9gk7adHYeDvHkCSEqAvQNLV5ur4.jpg',
-    overview: 'A thief who steals corporate secrets...',
-    releaseDate: '2010-07-16',
-    genres: [],
-    cast: [],
-    watchStatus: WatchStatus.Watched,
-    dateAdded: new Date(),
-    rating: 8.4,
-    rottenTomatoesScore: 87,
-  },
-  {
-    id: '2',
-    title: 'The Dark Knight',
-    posterURL: 'https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg',
-    overview: 'When the menace known as the Joker...',
-    releaseDate: '2008-07-18',
-    genres: [],
-    cast: [],
-    watchStatus: WatchStatus.Watching,
-    dateAdded: new Date(),
-    rating: 9.0,
-    rottenTomatoesScore: 94,
-  },
-  {
-    id: '3',
-    title: 'Interstellar',
-    posterURL: 'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg',
-    overview: 'A team of explorers travel through a wormhole...',
-    releaseDate: '2014-11-07',
-    genres: [],
-    cast: [],
-    watchStatus: WatchStatus.WatchLater,
-    dateAdded: new Date(),
-    rating: 8.6,
-    rottenTomatoesScore: 72,
-  },
-  {
-    id: '4',
-    title: 'Parasite',
-    posterURL: 'https://image.tmdb.org/t/p/w500/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg',
-    overview: 'All unemployed, Ki-taek family takes peculiar interest...',
-    releaseDate: '2019-05-30',
-    genres: [],
-    cast: [],
-    watchStatus: WatchStatus.Watched,
-    dateAdded: new Date(),
-    rating: 8.5,
-    rottenTomatoesScore: 99,
-    isFavourite: true,
-  },
-];
-
 export function HomeScreen() {
+  const { currentUserId, isGuestMode } = useAuth();
   const [mode, setMode] = useState<LibraryMode>('movies');
   const [filter, setFilter] = useState<FilterTab>('all');
   const [showProfile, setShowProfile] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [library, setLibrary] = useState<LibraryItem[]>(MOCK_ITEMS);
+  const [library, setLibrary] = useState<LibraryItem[]>([]);
   const [selectedMovie, setSelectedMovie] = useState<LibraryItem | null>(null);
   const [selectedAvatar, setSelectedAvatar] = useState<AvatarOption>(AVATAR_OPTIONS[0]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleAddMovie = (movieId: string, movieData?: Partial<Movie>) => {
-    // Check if already in library
-    if (library.find((item) => item.id === movieId)) {
-      // Remove from library
-      setLibrary((prev) => prev.filter((item) => item.id !== movieId));
+  // Load library on mount and when user changes
+  useEffect(() => {
+    loadLibrary();
+  }, [currentUserId, isGuestMode]);
+
+  const loadLibrary = async () => {
+    if (!currentUserId) {
+      setIsLoading(false);
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      if (isGuestMode) {
+        // Guest mode - load from AsyncStorage
+        const guestLibraryKey = `guestLibrary_${currentUserId}`;
+        const stored = await AsyncStorage.getItem(guestLibraryKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          // Convert dateAdded strings back to Date objects
+          const movies = parsed.map((m: any) => ({
+            ...m,
+            dateAdded: new Date(m.dateAdded),
+          }));
+          setLibrary(movies);
+        } else {
+          setLibrary([]);
+        }
+      } else {
+        // Authenticated user - load from Supabase
+        const movies = await libraryService.getUserMovies(currentUserId);
+        setLibrary(movies);
+      }
+    } catch (error) {
+      console.error('Failed to load library:', error);
+      setLibrary([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddMovie = async (movieId: string, movieData?: Partial<Movie>) => {
+    if (!currentUserId) return;
+
+    const existingMovie = library.find((item) => item.id === movieId);
+    
+    if (isGuestMode) {
+      // Guest mode - save to AsyncStorage
+      const guestLibraryKey = `guestLibrary_${currentUserId}`;
+      
+      if (existingMovie) {
+        // Remove from library
+        const newLibrary = library.filter((item) => item.id !== movieId);
+        setLibrary(newLibrary);
+        await AsyncStorage.setItem(guestLibraryKey, JSON.stringify(newLibrary));
+      } else {
+        // Add to library
+        if (!movieData) return;
+        
+        console.log('📦 HomeScreen - Received movieData:', {
+          title: movieData.title,
+          rating: movieData.rating,
+          rtScore: movieData.rottenTomatoesScore,
+        });
+        
+        const newItem: LibraryItem = {
+          id: movieId,
+          title: movieData.title || 'Unknown',
+          posterURL: movieData.posterURL || '',
+          overview: movieData.overview || '',
+          releaseDate: movieData.releaseDate || '',
+          genres: movieData.genres || [],
+          cast: movieData.cast || [],
+          watchStatus: WatchStatus.WatchLater,
+          dateAdded: new Date(),
+          rating: movieData.rating,
+          rottenTomatoesScore: movieData.rottenTomatoesScore,
+        };
+        
+        console.log('📦 HomeScreen - Created newItem:', {
+          title: newItem.title,
+          rating: newItem.rating,
+          rtScore: newItem.rottenTomatoesScore,
+        });
+        
+        const newLibrary = [...library, newItem];
+        setLibrary(newLibrary);
+        await AsyncStorage.setItem(guestLibraryKey, JSON.stringify(newLibrary));
+      }
     } else {
-      // Add to library
-      const newItem: LibraryItem = {
-        id: movieId,
-        title: movieData?.title || 'Unknown',
-        posterURL: movieData?.posterURL || '',
-        overview: movieData?.overview || '',
-        releaseDate: movieData?.releaseDate || '',
-        genres: movieData?.genres || [],
-        cast: movieData?.cast || [],
-        watchStatus: WatchStatus.WatchLater,
-        dateAdded: new Date(),
-        rating: movieData?.rating,
-        rottenTomatoesScore: movieData?.rottenTomatoesScore,
-      };
-      setLibrary((prev) => [...prev, newItem]);
+      // Authenticated user - save to database
+      if (existingMovie) {
+        // Remove from library
+        const success = await libraryService.removeMovie(currentUserId, movieId);
+        if (success) {
+          setLibrary((prev) => prev.filter((item) => item.id !== movieId));
+        }
+      } else {
+        // Add to library
+        if (!movieData) return;
+        
+        const success = await libraryService.addMovie(currentUserId, {
+          id: movieId,
+          title: movieData.title || 'Unknown',
+          posterURL: movieData.posterURL || '',
+          overview: movieData.overview || '',
+          releaseDate: movieData.releaseDate || '',
+          genres: movieData.genres || [],
+          cast: movieData.cast || [],
+          watchStatus: WatchStatus.WatchLater,
+          rating: movieData.rating,
+          rottenTomatoesScore: movieData.rottenTomatoesScore,
+        } as Movie);
+
+        if (success) {
+          // Reload library to get the new item with DB ID
+          await loadLibrary();
+        }
+      }
     }
   };
 
@@ -123,6 +170,16 @@ export function HomeScreen() {
         isInLibrary={isInLibrary}
         onToggleLibrary={() => handleAddMovie(selectedMovie.id)}
       />
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#000000" />
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -182,7 +239,11 @@ export function HomeScreen() {
             contentContainerStyle={styles.grid}
             showsVerticalScrollIndicator={false}
             renderItem={({ item }) => (
-              <MovieCard item={item} onPress={() => setSelectedMovie(item)} />
+              <MovieCard 
+                item={item} 
+                onPress={() => setSelectedMovie(item)}
+                onDelete={() => handleAddMovie(item.id)}
+              />
             )}
           />
         )}
@@ -209,6 +270,11 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   container: {
     flex: 1,

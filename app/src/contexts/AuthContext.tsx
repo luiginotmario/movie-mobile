@@ -5,6 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { Platform } from 'react-native';
 import { Config } from '../config';
+import { supabase } from '../lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -59,17 +60,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkAuthStatus = async () => {
     try {
-      const anonymousId = await AsyncStorage.getItem('anonymousUserId');
-      const supabaseId = await AsyncStorage.getItem('supabaseUserId');
-
-      if (anonymousId) {
-        setIsGuestMode(true);
-        setIsAuthenticated(false);
-        setCurrentUserId(anonymousId);
-      } else if (supabaseId) {
+      // Check for existing Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
         setIsAuthenticated(true);
         setIsGuestMode(false);
-        setCurrentUserId(supabaseId);
+        setCurrentUserId(session.user.id);
+      } else {
+        // Check for guest mode
+        const anonymousId = await AsyncStorage.getItem('anonymousUserId');
+        if (anonymousId) {
+          setIsGuestMode(true);
+          setIsAuthenticated(false);
+          setCurrentUserId(anonymousId);
+        }
       }
     } catch (error) {
       console.error('Error checking auth status:', error);
@@ -80,19 +85,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const handleGoogleResponse = async (authentication: any) => {
     try {
-      // Here you would typically send the token to your Supabase backend
-      // For now, simulate successful login
-      const mockUserId = 'google_' + Date.now();
-      await AsyncStorage.setItem('supabaseUserId', mockUserId);
-      setCurrentUserId(mockUserId);
-      setIsAuthenticated(true);
-      setIsGuestMode(false);
+      // Sign in with Supabase using Google ID token
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: authentication.idToken,
+      });
 
-      // Handle pending link token if any
-      if (pendingLinkToken) {
-        console.log('Linking social media account with token:', pendingLinkToken);
-        // await APIService.linkAccount(mockUserId, pendingLinkToken);
-        setPendingLinkToken(null);
+      if (error) throw error;
+
+      if (data.user) {
+        setCurrentUserId(data.user.id);
+        setIsAuthenticated(true);
+        setIsGuestMode(false);
+
+        // Handle pending link token if any
+        if (pendingLinkToken) {
+          console.log('Linking social media account with token:', pendingLinkToken);
+          // await APIService.linkAccount(data.user.id, pendingLinkToken);
+          setPendingLinkToken(null);
+        }
       }
     } catch (error) {
       console.error('Error handling Google response:', error);
@@ -118,22 +129,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ],
       });
 
-      // Here you would send the credential to your Supabase backend
-      // For now, simulate successful login
-      const mockUserId = 'apple_' + Date.now();
-      await AsyncStorage.setItem('supabaseUserId', mockUserId);
-      setCurrentUserId(mockUserId);
-      setIsAuthenticated(true);
-      setIsGuestMode(false);
+      // Sign in with Supabase using Apple identity token
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken!,
+      });
 
-      // Handle pending link token if any
-      if (pendingLinkToken) {
-        console.log('Linking social media account with token:', pendingLinkToken);
-        // await APIService.linkAccount(mockUserId, pendingLinkToken);
-        setPendingLinkToken(null);
+      if (error) throw error;
+
+      if (data.user) {
+        setCurrentUserId(data.user.id);
+        setIsAuthenticated(true);
+        setIsGuestMode(false);
+
+        // Handle pending link token if any
+        if (pendingLinkToken) {
+          console.log('Linking social media account with token:', pendingLinkToken);
+          // await APIService.linkAccount(data.user.id, pendingLinkToken);
+          setPendingLinkToken(null);
+        }
+
+        console.log('Apple sign-in successful');
       }
-
-      console.log('Apple sign-in successful:', credential);
     } catch (error: any) {
       if (error.code === 'ERR_CANCELED') {
         // User canceled the sign-in
@@ -163,7 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      await AsyncStorage.removeItem('supabaseUserId');
+      await supabase.auth.signOut();
       await AsyncStorage.removeItem('anonymousUserId');
       setIsAuthenticated(false);
       setIsGuestMode(false);
