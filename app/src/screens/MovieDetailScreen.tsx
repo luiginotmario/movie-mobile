@@ -13,6 +13,7 @@ import {
   Linking,
   ActionSheetIOS,
   Alert,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -41,6 +42,18 @@ export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary =
 
   const isTV = 'numberOfSeasons' in item;
   const currentProviders = allProviders[selectedCountry] || [];
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  const gradientHeight = scrollY.interpolate({
+    inputRange: [0, 300],
+    outputRange: [150, 400],
+    extrapolate: 'clamp',
+  });
+  const gradientOpacity = scrollY.interpolate({
+    inputRange: [0, 300],
+    outputRange: [1, 1],
+    extrapolate: 'clamp',
+  });
 
   const formatRuntime = (minutes: number): string => {
     if (minutes < 60) return `${minutes}m`;
@@ -209,12 +222,13 @@ export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary =
       />
       <View style={styles.backgroundOverlay} />
       
-      {/* Top Gradient for cleaner fade */}
-      <LinearGradient
-        colors={['rgba(0, 0, 0, 0.8)', 'rgba(0, 0, 0, 0)']}
-        style={styles.topGradient}
-        pointerEvents="none"
-      />
+      {/* Top Gradient for cleaner fade - grows on scroll */}
+      <Animated.View style={[styles.topGradient, { height: gradientHeight, opacity: gradientOpacity }]} pointerEvents="none">
+        <LinearGradient
+          colors={['rgba(0, 0, 0, 0.9)', 'rgba(0, 0, 0, 0)']}
+          style={{ flex: 1 }}
+        />
+      </Animated.View>
 
       {/* Ratings Badge - Fixed */}
       {(rottenTomatoesScore || rating) && (
@@ -251,10 +265,15 @@ export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary =
         </SafeAreaView>
       )}
 
-      <ScrollView
+      <Animated.ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
       >
         {/* Content Section */}
         <View style={styles.contentSection}>
@@ -412,7 +431,7 @@ export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary =
             </View>
           ) : null}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Back Button - Fixed Position */}
       <SafeAreaView style={styles.backButtonContainer} edges={['top']}>
@@ -478,7 +497,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   ratingsBadge: {
-    marginTop: 31,
+    marginTop: 12,
     marginRight: 17,
     borderRadius: 25,
     overflow: 'hidden',
@@ -675,7 +694,7 @@ const styles = StyleSheet.create({
     minWidth: (SCREEN_WIDTH - 34 - 10) / 2,
     maxWidth: (SCREEN_WIDTH - 34 - 10) / 2,
     flex: 1,
-    height: 102,
+    height: 118,
     borderRadius: 25,
     overflow: 'hidden',
     position: 'relative',
@@ -685,6 +704,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 12,
+    justifyContent: 'space-between',
   },
   providerLogo: {
     width: 42,
@@ -738,7 +758,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginLeft: 17,
-    marginTop: 31,
+    marginTop: 12,
     width: 48,
     height: 48,
     borderRadius: 24,
