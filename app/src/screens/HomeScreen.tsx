@@ -4,12 +4,12 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  SafeAreaView,
   TouchableOpacity,
   StatusBar,
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { HeaderTitle, FilterTabs, MovieCard, SearchButton } from '../components/home';
@@ -175,7 +175,7 @@ export function HomeScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#000000" />
         </View>
@@ -184,9 +184,10 @@ export function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
-      <View style={styles.container}>
+    <View style={styles.safeArea}>
+      <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+        <StatusBar barStyle="dark-content" />
+        <View style={styles.container}>
         {/* Header: title + avatar */}
         <View style={styles.header}>
           <HeaderTitle mode={mode} onModeChange={setMode} />
@@ -205,8 +206,6 @@ export function HomeScreen() {
         </View>
 
         <FilterTabs active={filter} onTabChange={setFilter} />
-
-        <View style={{ height: 23 }} />
 
         {filtered.length === 0 ? (
           <View style={styles.empty}>
@@ -261,8 +260,9 @@ export function HomeScreen() {
           libraryIds={library.map((item) => item.id)}
         />
       </View>
+      </SafeAreaView>
       <SearchButton onPress={() => setShowSearch(true)} />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -294,7 +294,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   grid: {
-    paddingBottom: 0,
+    paddingTop: 24,
+    paddingBottom: 34,
   },
   row: {
     justifyContent: 'space-between',

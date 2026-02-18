@@ -149,17 +149,24 @@ export function SearchSheet({ visible, onClose, onAddItem, libraryIds = [] }: Se
   };
 
   const handleAddToggle = async (item: SearchResult) => {
+    const nextIsAdded = !item.isAdded;
+
     // Optimistic UI - update immediately
     const updateItemState = (items: SearchResult[]) =>
-      items.map((i) => (i.id === item.id ? { ...i, isAdded: true } : i));
-    
+      items.map((i) => (i.id === item.id ? { ...i, isAdded: nextIsAdded } : i));
+
     setResults(updateItemState);
     setTrendingMovies(updateItemState);
-    
+
+    if (!nextIsAdded) {
+      onAddItem?.(item.id);
+      return;
+    }
+
     // Fetch full details in background
     try {
       console.log('Fetching details for:', item.title, 'Type:', item.type);
-      
+
       if (item.type === 'Movie') {
         const details = await apiService.getMovieDetailsWithRT(item.id);
         console.log('✅ SearchSheet - Movie details fetched:', {
@@ -167,7 +174,7 @@ export function SearchSheet({ visible, onClose, onAddItem, libraryIds = [] }: Se
           rating: details.rating,
           rtScore: details.rottenTomatoesScore,
         });
-        
+
         onAddItem?.(item.id, {
           title: details.title,
           posterURL: details.posterURL,
@@ -189,7 +196,7 @@ export function SearchSheet({ visible, onClose, onAddItem, libraryIds = [] }: Se
           rating: details.rating,
           rtScore: details.rottenTomatoesScore,
         });
-        
+
         onAddItem?.(item.id, {
           title: details.title,
           posterURL: details.posterURL,
