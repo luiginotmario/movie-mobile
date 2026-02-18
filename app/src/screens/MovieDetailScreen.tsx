@@ -44,14 +44,9 @@ export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary =
   const currentProviders = allProviders[selectedCountry] || [];
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  const gradientHeight = scrollY.interpolate({
-    inputRange: [0, 300],
-    outputRange: [150, 400],
-    extrapolate: 'clamp',
-  });
   const gradientOpacity = scrollY.interpolate({
-    inputRange: [0, 300],
-    outputRange: [1, 1],
+    inputRange: [0, 200],
+    outputRange: [0.6, 1],
     extrapolate: 'clamp',
   });
 
@@ -222,10 +217,10 @@ export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary =
       />
       <View style={styles.backgroundOverlay} />
       
-      {/* Top Gradient for cleaner fade - grows on scroll */}
-      <Animated.View style={[styles.topGradient, { height: gradientHeight, opacity: gradientOpacity }]} pointerEvents="none">
+      {/* Top Gradient - darkens on scroll */}
+      <Animated.View style={[styles.topGradient, { opacity: gradientOpacity }]} pointerEvents="none">
         <LinearGradient
-          colors={['rgba(0, 0, 0, 0.9)', 'rgba(0, 0, 0, 0)']}
+          colors={['rgba(0, 0, 0, 1)', 'rgba(0, 0, 0, 0)']}
           style={{ flex: 1 }}
         />
       </Animated.View>
@@ -480,14 +475,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   topGradient: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 150,
+    height: 180,
     zIndex: 5,
   },
   ratingsBadgeContainer: {
@@ -755,6 +750,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
+    zIndex: 10,
   },
   backButton: {
     marginLeft: 17,
