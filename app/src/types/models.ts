@@ -26,13 +26,21 @@ export interface TVSeries {
   id: string;
   title: string;
   posterURL?: string;
+  backdropURL?: string;
   overview: string;
+  firstAirDate?: string;
+  rating?: number;
+  rottenTomatoesScore?: number;
+  genres: string[];
+  cast: string[];
   numberOfSeasons: number;
   numberOfEpisodes: number;
   watchStatus: WatchStatus;
   currentSeason?: number;
   currentEpisode?: number;
   dateAdded: Date;
+  userRating?: number;
+  notes?: string;
   isFavourite?: boolean;
   sourceService?: StreamingService;
 }

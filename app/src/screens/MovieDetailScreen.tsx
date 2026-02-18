@@ -11,10 +11,13 @@ import {
   Share,
   ActivityIndicator,
   Linking,
+  ActionSheetIOS,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import ChevronIcon from '../../assets/chevron-right.svg';
 import { LibraryItem } from '../utils/types';
 import APIService from '../services/APIService';
 
@@ -29,9 +32,23 @@ interface MovieDetailScreenProps {
 
 export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary = false }: MovieDetailScreenProps) {
   const [cast, setCast] = useState<Array<{ id: string; name: string; photo: string }>>([]);
-  const [providers, setProviders] = useState<Array<{ id: number; name: string; logo: string }>>([]);
+  const [allProviders, setAllProviders] = useState<Record<string, Array<{ id: number; name: string; logo: string }>>>({});
+  const [selectedCountry, setSelectedCountry] = useState('US');
+  const [availableCountries, setAvailableCountries] = useState<string[]>([]);
+  const [runtime, setRuntime] = useState<number | null>(null);
   const [trailerURL, setTrailerURL] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const isTV = 'numberOfSeasons' in item;
+  const currentProviders = allProviders[selectedCountry] || [];
+
+  const formatRuntime = (minutes: number): string => {
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (mins === 0) return `${hours}h`;
+    return `${hours}h ${mins}m`;
+  };
 
   useEffect(() => {
     loadMovieDetails();
@@ -40,28 +57,23 @@ export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary =
   const loadMovieDetails = async () => {
     setIsLoading(true);
     try {
-      const isTV = 'numberOfSeasons' in item;
       const mediaType = isTV ? 'tv' : 'movie';
-      const tmdbAPIKey = 'f99c4bd4f3af30bde84b8fbe75f56aa8'; // From your env
-      
-      console.log('🎬 MovieDetail - Loading details for:', item.title);
-      console.log('🎬 MovieDetail - Media Type:', mediaType, 'ID:', item.id);
-      console.log('🎬 MovieDetail - Credits URL:', `https://api.themoviedb.org/3/${mediaType}/${item.id}/credits?api_key=${tmdbAPIKey}`);
-      console.log('🎬 MovieDetail - Providers URL:', `https://api.themoviedb.org/3/${mediaType}/${item.id}/watch/providers?api_key=${tmdbAPIKey}`);
-      console.log('🎬 MovieDetail - Videos URL:', `https://api.themoviedb.org/3/${mediaType}/${item.id}/videos?api_key=${tmdbAPIKey}`);
-      
-      // Fetch cast, watch providers, and videos
-      const [castResponse, providersResponse, videosResponse] = await Promise.all([
+      const tmdbAPIKey = 'f99c4bd4f3af30bde84b8fbe75f56aa8';
+
+      const [castResponse, providersResponse, videosResponse, detailsResponse] = await Promise.all([
         fetch(`https://api.themoviedb.org/3/${mediaType}/${item.id}/credits?api_key=${tmdbAPIKey}`).then(r => r.json()),
         fetch(`https://api.themoviedb.org/3/${mediaType}/${item.id}/watch/providers?api_key=${tmdbAPIKey}`).then(r => r.json()),
         fetch(`https://api.themoviedb.org/3/${mediaType}/${item.id}/videos?api_key=${tmdbAPIKey}`).then(r => r.json()),
+        fetch(`https://api.themoviedb.org/3/${mediaType}/${item.id}?api_key=${tmdbAPIKey}`).then(r => r.json()),
       ]);
-      
-      console.log('🎬 MovieDetail - Cast count:', castResponse.cast?.length || 0);
-      console.log('🎬 MovieDetail - Providers results:', Object.keys(providersResponse.results || {}));
-      console.log('🎬 MovieDetail - Videos count:', videosResponse.results?.length || 0);
-      
-      // Parse cast
+
+      if (isTV) {
+        const epRuntime = detailsResponse.episode_run_time;
+        setRuntime(Array.isArray(epRuntime) && epRuntime.length > 0 ? epRuntime[0] : null);
+      } else {
+        setRuntime(detailsResponse.runtime || null);
+      }
+
       const castData = castResponse.cast?.slice(0, 10).map((person: any) => ({
         id: String(person.id),
         name: person.name,
@@ -70,52 +82,60 @@ export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary =
           : 'https://via.placeholder.com/185x278?text=No+Photo',
       })) || [];
       setCast(castData);
-      
-      // Parse providers and deduplicate aggressively
-      const regionData = providersResponse.results?.US;
-      const providersData = regionData?.flatrate || [];
-      
-      console.log('🎬 MovieDetail - US Region Data:', regionData ? 'Found' : 'Not Found');
-      console.log('🎬 MovieDetail - Flatrate providers count:', providersData.length);
-      
-      const uniqueProviders = new Map();
-      providersData.forEach((provider: any) => {
-        // Extract base name - remove everything after space that's not part of the main brand
-        let baseName = provider.provider_name;
-        
-        // Remove common channel suffixes
-        baseName = baseName
-          .replace(/\s+(Amazon|Roku|Apple TV|Prime Video)\s+Channel$/i, '')
-          .replace(/\s+via\s+.+$/i, '')
-          .replace(/\s+Premium\s+Channel$/i, '')
-          .replace(/\s+Channel$/i, '')
-          .trim();
-        
-        // For Paramount specifically, extract just "Paramount+"
-        if (baseName.toLowerCase().includes('paramount')) {
-          baseName = 'Paramount+';
+
+      const results = providersResponse.results || {};
+      const countryProviders: Record<string, Array<{ id: number; name: string; logo: string }>> = {};
+
+      for (const [countryCode, regionData] of Object.entries(results)) {
+        const unique = new Map<string, { id: number; name: string; logo: string }>();
+
+        for (const type of ['flatrate', 'rent', 'buy']) {
+          const list = (regionData as any)[type] || [];
+          for (const provider of list) {
+            let baseName = provider.provider_name;
+            baseName = baseName
+              .replace(/\s+(Amazon|Roku|Apple TV|Prime Video)\s+Channel$/i, '')
+              .replace(/\s+via\s+.+$/i, '')
+              .replace(/\s+Premium\s+Channel$/i, '')
+              .replace(/\s+Channel$/i, '')
+              .trim();
+            if (baseName.toLowerCase().includes('paramount')) {
+              baseName = 'Paramount+';
+            }
+            if (!unique.has(baseName)) {
+              unique.set(baseName, {
+                id: provider.provider_id,
+                name: baseName,
+                logo: `https://image.tmdb.org/t/p/original${provider.logo_path}`,
+              });
+            }
+          }
         }
-        
-        console.log('Provider mapping:', provider.provider_name, '->', baseName);
-        
-        if (!uniqueProviders.has(baseName)) {
-          uniqueProviders.set(baseName, {
-            id: provider.provider_id,
-            name: baseName,
-            logo: `https://image.tmdb.org/t/p/original${provider.logo_path}`,
-          });
+
+        if (unique.size > 0) {
+          countryProviders[countryCode] = Array.from(unique.values());
         }
-      });
-      
-      setProviders(Array.from(uniqueProviders.values()));
-      
-      // Parse trailer - find the first YouTube trailer (store just the key)
+      }
+
+      console.log('🎬 Providers - Countries found:', Object.keys(countryProviders).length);
+      if (countryProviders['US']) {
+        console.log('🎬 Providers - US providers:', countryProviders['US'].map(p => p.name).join(', '));
+      }
+
+      setAllProviders(countryProviders);
+      const countries = Object.keys(countryProviders).sort();
+      setAvailableCountries(countries);
+      if (countryProviders['US']) {
+        setSelectedCountry('US');
+      } else if (countries.length > 0) {
+        setSelectedCountry(countries[0]);
+      }
+
       const trailer = videosResponse.results?.find(
         (video: any) => video.site === 'YouTube' && video.type === 'Trailer'
       );
       if (trailer) {
-        setTrailerURL(trailer.key); // Just the YouTube video ID
-        console.log('🎬 Trailer found:', trailer.key);
+        setTrailerURL(trailer.key);
       }
     } catch (error) {
       console.error('Failed to load details:', error);
@@ -242,7 +262,7 @@ export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary =
           <View style={styles.titleSection}>
             <Text style={styles.title}>{item.title.toUpperCase()}</Text>
             <Text style={styles.metadata}>
-              {'Movie' in item ? 'Movie' : 'TV Series'} · {getYear()} · 30 min
+              {isTV ? 'TV Series' : 'Movie'} · {getYear()}{runtime ? ` · ${formatRuntime(runtime)}` : isTV && 'numberOfSeasons' in item ? ` · ${(item as any).numberOfSeasons} Season${(item as any).numberOfSeasons !== 1 ? 's' : ''}` : ''}
             </Text>
             <Text style={styles.genres}>🎭 {getGenres()}</Text>
           </View>
@@ -298,18 +318,45 @@ export function MovieDetailScreen({ item, onBack, onToggleLibrary, isInLibrary =
             <View style={styles.loadingSection}>
               <ActivityIndicator size="small" color="#FFFFFF" />
             </View>
-          ) : providers.length > 0 ? (
+          ) : currentProviders.length > 0 ? (
             <View style={styles.whereSection}>
               <View style={styles.whereSectionHeader}>
-                <Text style={styles.sectionTitle}>Where to watch</Text>
-                <View style={styles.countryBadge}>
+                <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Where to watch</Text>
+                <TouchableOpacity
+                  style={styles.countryBadge}
+                  onPress={() => {
+                    if (Platform.OS === 'ios') {
+                      ActionSheetIOS.showActionSheetWithOptions(
+                        {
+                          options: [...availableCountries, 'Cancel'],
+                          cancelButtonIndex: availableCountries.length,
+                          title: 'Select Country',
+                        },
+                        (index) => {
+                          if (index < availableCountries.length) {
+                            setSelectedCountry(availableCountries[index]);
+                          }
+                        },
+                      );
+                    } else {
+                      Alert.alert('Select Country', undefined, [
+                        ...availableCountries.slice(0, 20).map(code => ({
+                          text: code,
+                          onPress: () => setSelectedCountry(code),
+                        })),
+                        { text: 'Cancel', style: 'cancel' as const },
+                      ]);
+                    }
+                  }}
+                >
                   <View style={styles.countryDot} />
-                  <Text style={styles.countryText}>US</Text>
-                </View>
+                  <Text style={styles.countryText}>{selectedCountry}</Text>
+                  <ChevronIcon width={12} height={7} color="#FFFFFF" />
+                </TouchableOpacity>
               </View>
 
               <View style={styles.providersGrid}>
-                {providers.map((provider) => (
+                {currentProviders.map((provider) => (
                 <View key={provider.id} style={styles.providerCard}>
                   <View style={styles.glassBorder} />
                   <View style={styles.glassBackground} />
@@ -617,6 +664,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     letterSpacing: -0.24,
+    lineHeight: 20,
   },
   providersGrid: {
     flexDirection: 'row',

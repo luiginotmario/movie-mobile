@@ -126,6 +126,8 @@ class APIService {
           ? `${this.imageBaseURL}/w500${tmdbTV.poster_path}`
           : undefined,
         overview: tmdbTV.overview,
+        genres: [],
+        cast: [],
         numberOfSeasons: tmdbTV.number_of_seasons || 0,
         numberOfEpisodes: tmdbTV.number_of_episodes || 0,
         watchStatus: WatchStatus.WatchLater,
