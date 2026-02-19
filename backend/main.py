@@ -8,6 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import httpx
 from typing import Optional
+import json
+import hashlib
 
 from services.video_processor import VideoProcessor
 from services.openrouter_service import OpenRouterService
@@ -104,7 +106,16 @@ async def instagram_webhook_verification(request: Request):
 @app.post("/webhook/instagram")
 async def instagram_webhook(request: Request, background_tasks: BackgroundTasks):
     """Handle Instagram webhook events"""
-    data = await request.json()
+    raw_body = await request.body()
+    signature = request.headers.get("X-Hub-Signature-256") or request.headers.get("X-Hub-Signature")
+
+    if not instagram.verify_signature(raw_body, signature):
+        raise HTTPException(status_code=403, detail="Invalid signature")
+
+    try:
+        data = json.loads(raw_body.decode())
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
     
     # Respond immediately to avoid timeout
     background_tasks.add_task(process_instagram_message, data)
@@ -112,10 +123,34 @@ async def instagram_webhook(request: Request, background_tasks: BackgroundTasks)
     return {"status": "received"}
 
 # TikTok Webhook
+@app.get("/webhook/tiktok")
+async def tiktok_webhook_verification(request: Request):
+    """
+    Verify TikTok webhook (challenge flow).
+    Supports common url_verification payloads.
+    """
+    challenge = request.query_params.get("challenge")
+    if challenge:
+        return {"challenge": challenge}
+    return {"status": "ok"}
+
 @app.post("/webhook/tiktok")
 async def tiktok_webhook(request: Request, background_tasks: BackgroundTasks):
     """Handle TikTok webhook events"""
-    data = await request.json()
+    raw_body = await request.body()
+    signature = request.headers.get(tiktok.signature_header)
+
+    if not tiktok.verify_signature(raw_body, signature):
+        raise HTTPException(status_code=403, detail="Invalid signature")
+
+    try:
+        data = json.loads(raw_body.decode())
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    # TikTok URL verification flow (common pattern)
+    if data.get("type") == "url_verification" and data.get("challenge"):
+        return {"challenge": data.get("challenge")}
     
     # Respond immediately to avoid timeout
     background_tasks.add_task(process_tiktok_message, data)
@@ -270,111 +305,156 @@ async def get_movie_with_streaming(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# ---------------------------------------------------------------------------
 # Background Tasks
+# ---------------------------------------------------------------------------
+
 async def process_instagram_message(data: dict):
-    """Process Instagram message with smart user state handling"""
+    """Process all Instagram messages (text + video)"""
     try:
-        # Extract message data
-        entry = data.get("entry", [])[0]
-        messaging = entry.get("messaging", [])[0]
-        sender_id = messaging.get("sender", {}).get("id")
-        
-        # Check if message contains video
-        if "message" in messaging and "attachments" in messaging["message"]:
-            for attachment in messaging["message"]["attachments"]:
-                if attachment.get("type") == "video":
-                    video_url = attachment.get("payload", {}).get("url")
-                    
-                    # 1. Identify movie from video
-                    result = await identify_movie_from_video(video_url)
-                    
-                    if not result["success"]:
-                        await instagram.send_message(
-                            sender_id,
-                            "😕 Couldn't identify this movie. Try a clearer scene!"
-                        )
-                        return
-                    
-                    movie = result["movie"]
-                    
-                    # 2. Get user state (new, returning, or linked)
-                    state, user_data = await user_state_service.get_user_state(
-                        platform=Platform.INSTAGRAM,
-                        platform_user_id=sender_id
-                    )
-                    
-                    # 3. Generate appropriate response based on user journey
-                    response = await user_state_service.generate_response(
-                        state=state,
-                        movie=movie,
-                        platform=Platform.INSTAGRAM,
-                        platform_user_id=sender_id,
-                        user_data=user_data
-                    )
-                    
-                    # 4. If linked user, save clip automatically
-                    if response.should_save_clip and user_data:
-                        await clip_storage_service.save_clip_to_library(
-                            app_user_id=user_data["app_user_id"],
-                            movie=movie,
-                            video_url=video_url,
-                            platform=Platform.INSTAGRAM
-                        )
-                    
-                    # 5. Send response message
-                    await instagram.send_message(sender_id, response.response_message)
-                    
+        for msg in _extract_instagram_messages(data):
+            sender_id = msg["sender_id"]
+
+            if msg["type"] == "text":
+                print(f"📩 IG text from {sender_id}: {msg['text']}")
+                await _handle_text_message(sender_id, msg["text"], platform="instagram")
+
+            elif msg["type"] == "video":
+                print(f"📩 IG video from {sender_id}")
+                await _handle_video_identification(
+                    sender_id, msg["video_url"], platform="instagram"
+                )
     except Exception as e:
         print(f"Error processing Instagram message: {e}")
 
+
 async def process_tiktok_message(data: dict):
-    """Process TikTok message with smart user state handling"""
+    """Process all TikTok messages (text + video)"""
     try:
-        # TikTok webhook payload structure (adjust based on actual API)
-        video_url = data.get("video_url")
-        user_id = data.get("user_id")
-        
-        if not video_url or not user_id:
-            return
-        
-        # 1. Identify movie
-        result = await identify_movie_from_video(video_url)
-        
-        if not result["success"]:
-            await tiktok.send_message(user_id, "😕 Couldn't identify this movie.")
-            return
-        
-        movie = result["movie"]
-        
-        # 2. Get user state
-        state, user_data = await user_state_service.get_user_state(
-            platform=Platform.TIKTOK,
-            platform_user_id=user_id
-        )
-        
-        # 3. Generate response
-        response = await user_state_service.generate_response(
-            state=state,
-            movie=movie,
-            platform=Platform.TIKTOK,
-            platform_user_id=user_id,
-            user_data=user_data
-        )
-        
-        # 4. Save clip if linked
-        if response.should_save_clip and user_data:
-            await clip_storage_service.save_clip_to_library(
-                app_user_id=user_data["app_user_id"],
-                movie=movie,
-                video_url=video_url,
-                platform=Platform.TIKTOK
-            )
-        
-        # 5. Send response
-        await tiktok.send_message(user_id, response.response_message)
-                
+        for msg in _extract_tiktok_messages(data):
+            user_id = msg["user_id"]
+
+            if msg["type"] == "text":
+                print(f"📩 TT text from {user_id}: {msg['text']}")
+                await _handle_text_message(user_id, msg["text"], platform="tiktok")
+
+            elif msg["type"] == "video":
+                print(f"📩 TT video from {user_id}")
+                await _handle_video_identification(
+                    user_id, msg["video_url"], platform="tiktok"
+                )
     except Exception as e:
         print(f"Error processing TikTok message: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Shared handlers
+# ---------------------------------------------------------------------------
+
+async def _send_reply(user_id: str, text: str, platform: str):
+    """Send a reply via the correct platform service"""
+    if platform == "instagram":
+        await instagram.send_message(user_id, text)
+    else:
+        await tiktok.send_message(user_id, text)
+
+
+async def _handle_text_message(user_id: str, text: str, platform: str):
+    """Reply to text messages prompting the user to send a video instead"""
+    await _send_reply(
+        user_id,
+        "🎬 Send me a video clip and I'll tell you which movie or TV show it's from!",
+        platform,
+    )
+
+
+async def _handle_video_identification(user_id: str, video_url: str, platform: str):
+    """Identify movie from video clip and reply with just the VLM answer"""
+    result = await identify_movie_from_video(video_url)
+
+    if not result["success"]:
+        await _send_reply(
+            user_id,
+            "😕 Couldn't identify this movie. Try a clearer scene!",
+            platform,
+        )
+        return
+
+    await _send_reply(user_id, result["vlm_response"], platform)
+
+
+# ---------------------------------------------------------------------------
+# Payload extraction
+# ---------------------------------------------------------------------------
+
+def _extract_instagram_messages(data: dict) -> list[dict]:
+    """
+    Extract all messages from Instagram webhook payload.
+    Returns list of dicts: {type: "text"|"video", sender_id, text?, video_url?}
+    """
+    messages: list[dict] = []
+    for entry in data.get("entry", []):
+        events = entry.get("messaging", []) or entry.get("messaging_events", [])
+        for event in events:
+            sender_id = event.get("sender", {}).get("id")
+            if not sender_id:
+                continue
+
+            msg = event.get("message", {}) or {}
+
+            # Video attachments
+            for att in msg.get("attachments", []) or []:
+                if att.get("type") != "video":
+                    continue
+                payload = att.get("payload", {}) or {}
+                video_url = payload.get("url") or payload.get("video_url") or payload.get("src")
+                if video_url:
+                    messages.append({"type": "video", "sender_id": sender_id, "video_url": video_url})
+
+            # Text message (only if no video was extracted from this event)
+            text = msg.get("text", "").strip()
+            if text and not any(m["sender_id"] == sender_id and m["type"] == "video" for m in messages[-1:]):
+                messages.append({"type": "text", "sender_id": sender_id, "text": text})
+
+    return messages
+
+
+def _extract_tiktok_messages(data: dict) -> list[dict]:
+    """
+    Extract messages from TikTok webhook payload.
+    Returns list of dicts: {type: "text"|"video", user_id, text?, video_url?}
+    """
+    messages: list[dict] = []
+
+    user_id = (
+        data.get("user_id")
+        or data.get("from_user_id")
+        or data.get("user", {}).get("id")
+        or data.get("event", {}).get("user_id")
+    )
+    if not user_id:
+        return messages
+
+    video_url = (
+        data.get("video_url")
+        or data.get("video", {}).get("url")
+        or data.get("data", {}).get("video_url")
+        or data.get("event", {}).get("video_url")
+    )
+
+    text = (
+        data.get("text")
+        or data.get("message", {}).get("text", "")
+        or data.get("data", {}).get("text", "")
+        or data.get("event", {}).get("text", "")
+    )
+
+    if video_url:
+        messages.append({"type": "video", "user_id": user_id, "video_url": video_url})
+    elif isinstance(text, str) and text.strip():
+        messages.append({"type": "text", "user_id": user_id, "text": text.strip()})
+
+    return messages
 
 async def identify_movie_from_video(video_url: str) -> dict:
     """
@@ -382,6 +462,12 @@ async def identify_movie_from_video(video_url: str) -> dict:
     Target: 5-10 seconds total
     """
     try:
+        # Cache by video URL hash to avoid re-processing
+        video_hash = hashlib.sha256(video_url.encode()).hexdigest()
+        cached = tmdb.cache.get_vlm_identification(video_hash)
+        if cached:
+            return cached
+
         # 1. Download and extract frames (1-2s)
         frames = await video_processor.extract_key_frames(video_url, num_frames=3)
         
@@ -400,12 +486,15 @@ async def identify_movie_from_video(video_url: str) -> dict:
         if not movie:
             return {"success": False, "error": "Could not verify movie in database"}
         
-        return {
+        result = {
             "success": True,
             "movie": movie,
             "vlm_response": vlm_response,
             "confidence": "high"
         }
+
+        tmdb.cache.set_vlm_identification(video_hash, result)
+        return result
         
     except Exception as e:
         print(f"Error in identify_movie_from_video: {e}")

@@ -12,7 +12,11 @@ class Settings(BaseSettings):
     TMDB_API_KEY: str = ""
     INSTAGRAM_VERIFY_TOKEN: str = ""
     INSTAGRAM_ACCESS_TOKEN: str = ""
+    INSTAGRAM_APP_SECRET: str = ""
+    INSTAGRAM_ACCOUNT_ID: str = ""
     TIKTOK_ACCESS_TOKEN: str = ""
+    TIKTOK_WEBHOOK_SECRET: str = ""
+    TIKTOK_WEBHOOK_SIGNATURE_HEADER: str = "X-Tt-Signature"
     
     # OpenRouter Configuration
     OPENROUTER_MODEL: str = "google/gemini-flash-1.5-8b"  # Fast & cheap
