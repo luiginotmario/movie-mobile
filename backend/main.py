@@ -324,24 +324,52 @@ async def process_instagram_message(data: dict):
                 await _handle_video_identification(
                     sender_id, msg["video_url"], platform="instagram"
                 )
+
+            elif msg["type"] == "image":
+                await _send_reply(
+                    sender_id,
+                    "🎬 Send me a video clip and I'll tell you which movie or TV show it's from!",
+                    platform="instagram",
+                )
     except Exception as e:
         print(f"Error processing Instagram message: {e}")
 
 
 async def process_tiktok_message(data: dict):
-    """Process all TikTok messages (text + video)"""
+    """Process TikTok Business Messaging webhook (im_receive_msg)"""
     try:
-        for msg in _extract_tiktok_messages(data):
-            user_id = msg["user_id"]
+        for msg in tiktok.parse_webhook(data):
+            biz_id = msg["business_id"]
+            conv_id = msg["conversation_id"]
+            sender = msg["sender_id"]
 
             if msg["type"] == "text":
-                print(f"📩 TT text from {user_id}: {msg['text']}")
-                await _handle_text_message(user_id, msg["text"], platform="tiktok")
+                print(f"📩 TT text from {sender}: {msg['text']}")
+                await _handle_text_message(
+                    biz_id, msg["text"],
+                    platform="tiktok", conversation_id=conv_id,
+                )
 
             elif msg["type"] == "video":
-                print(f"📩 TT video from {user_id}")
+                print(f"📩 TT video from {sender} (media_id: {msg['media_id']})")
+                video_path = await tiktok.download_media(biz_id, msg["media_id"])
+                if not video_path:
+                    await _send_reply(
+                        biz_id,
+                        "😕 Couldn't download the video. Try sending it again!",
+                        platform="tiktok", conversation_id=conv_id,
+                    )
+                    return
                 await _handle_video_identification(
-                    user_id, msg["video_url"], platform="tiktok"
+                    biz_id, video_path,
+                    platform="tiktok", conversation_id=conv_id,
+                )
+
+            elif msg["type"] == "image":
+                await _send_reply(
+                    biz_id,
+                    "🎬 Send me a video clip and I'll tell you which movie or TV show it's from!",
+                    platform="tiktok", conversation_id=conv_id,
                 )
     except Exception as e:
         print(f"Error processing TikTok message: {e}")
@@ -351,24 +379,44 @@ async def process_tiktok_message(data: dict):
 # Shared handlers
 # ---------------------------------------------------------------------------
 
-async def _send_reply(user_id: str, text: str, platform: str):
+async def _send_reply(
+    user_id: str,
+    text: str,
+    platform: str,
+    conversation_id: Optional[str] = None,
+):
     """Send a reply via the correct platform service"""
     if platform == "instagram":
         await instagram.send_message(user_id, text)
     else:
-        await tiktok.send_message(user_id, text)
+        await tiktok.send_message(
+            business_id=user_id,
+            conversation_id=conversation_id or "",
+            text=text,
+        )
 
 
-async def _handle_text_message(user_id: str, text: str, platform: str):
+async def _handle_text_message(
+    user_id: str,
+    text: str,
+    platform: str,
+    conversation_id: Optional[str] = None,
+):
     """Reply to text messages prompting the user to send a video instead"""
     await _send_reply(
         user_id,
         "🎬 Send me a video clip and I'll tell you which movie or TV show it's from!",
         platform,
+        conversation_id=conversation_id,
     )
 
 
-async def _handle_video_identification(user_id: str, video_url: str, platform: str):
+async def _handle_video_identification(
+    user_id: str,
+    video_url: str,
+    platform: str,
+    conversation_id: Optional[str] = None,
+):
     """Identify movie from video clip and reply with just the VLM answer"""
     result = await identify_movie_from_video(video_url)
 
@@ -377,10 +425,14 @@ async def _handle_video_identification(user_id: str, video_url: str, platform: s
             user_id,
             "😕 Couldn't identify this movie. Try a clearer scene!",
             platform,
+            conversation_id=conversation_id,
         )
         return
 
-    await _send_reply(user_id, result["vlm_response"], platform)
+    await _send_reply(
+        user_id, result["vlm_response"], platform,
+        conversation_id=conversation_id,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -390,7 +442,7 @@ async def _handle_video_identification(user_id: str, video_url: str, platform: s
 def _extract_instagram_messages(data: dict) -> list[dict]:
     """
     Extract all messages from Instagram webhook payload.
-    Returns list of dicts: {type: "text"|"video", sender_id, text?, video_url?}
+    Returns list of dicts: {type: "text"|"video"|"image", sender_id, text?, video_url?}
     """
     messages: list[dict] = []
     for entry in data.get("entry", []):
@@ -401,60 +453,30 @@ def _extract_instagram_messages(data: dict) -> list[dict]:
                 continue
 
             msg = event.get("message", {}) or {}
+            has_media = False
 
-            # Video attachments
             for att in msg.get("attachments", []) or []:
-                if att.get("type") != "video":
-                    continue
+                att_type = att.get("type", "")
                 payload = att.get("payload", {}) or {}
-                video_url = payload.get("url") or payload.get("video_url") or payload.get("src")
-                if video_url:
-                    messages.append({"type": "video", "sender_id": sender_id, "video_url": video_url})
 
-            # Text message (only if no video was extracted from this event)
-            text = msg.get("text", "").strip()
-            if text and not any(m["sender_id"] == sender_id and m["type"] == "video" for m in messages[-1:]):
-                messages.append({"type": "text", "sender_id": sender_id, "text": text})
+                if att_type == "video":
+                    video_url = payload.get("url") or payload.get("video_url") or payload.get("src")
+                    if video_url:
+                        messages.append({"type": "video", "sender_id": sender_id, "video_url": video_url})
+                        has_media = True
 
-    return messages
+                elif att_type == "image":
+                    messages.append({"type": "image", "sender_id": sender_id})
+                    has_media = True
 
-
-def _extract_tiktok_messages(data: dict) -> list[dict]:
-    """
-    Extract messages from TikTok webhook payload.
-    Returns list of dicts: {type: "text"|"video", user_id, text?, video_url?}
-    """
-    messages: list[dict] = []
-
-    user_id = (
-        data.get("user_id")
-        or data.get("from_user_id")
-        or data.get("user", {}).get("id")
-        or data.get("event", {}).get("user_id")
-    )
-    if not user_id:
-        return messages
-
-    video_url = (
-        data.get("video_url")
-        or data.get("video", {}).get("url")
-        or data.get("data", {}).get("video_url")
-        or data.get("event", {}).get("video_url")
-    )
-
-    text = (
-        data.get("text")
-        or data.get("message", {}).get("text", "")
-        or data.get("data", {}).get("text", "")
-        or data.get("event", {}).get("text", "")
-    )
-
-    if video_url:
-        messages.append({"type": "video", "user_id": user_id, "video_url": video_url})
-    elif isinstance(text, str) and text.strip():
-        messages.append({"type": "text", "user_id": user_id, "text": text.strip()})
+            if not has_media:
+                text = msg.get("text", "").strip()
+                if text:
+                    messages.append({"type": "text", "sender_id": sender_id, "text": text})
 
     return messages
+
+
 
 async def identify_movie_from_video(video_url: str) -> dict:
     """

@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     INSTAGRAM_APP_SECRET: str = ""
     INSTAGRAM_ACCOUNT_ID: str = ""
     TIKTOK_ACCESS_TOKEN: str = ""
+    TIKTOK_APP_ID: str = ""
+    TIKTOK_APP_SECRET: str = ""
     TIKTOK_WEBHOOK_SECRET: str = ""
     TIKTOK_WEBHOOK_SIGNATURE_HEADER: str = "X-Tt-Signature"
     
